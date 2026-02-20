@@ -1,0 +1,434 @@
+<html lang="en" class="scroll-smooth"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Career Performance Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050505;
+            color: #a3a3a3;
+        }
+        .text-gradient {
+            background: linear-gradient(to bottom, #ffffff, #a3a3a3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .noise-bg {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            opacity: 0.4;
+            pointer-events: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+        
+        .wave-bar {
+            animation: sound 1s infinite ease-in-out alternate;
+        }
+        @keyframes sound {
+            0% { height: 20%; }
+            100% { height: 100%; }
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
+
+    <div class="noise-bg"></div>
+
+    <!-- Background Gradient Spotlights -->
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
+
+    <!-- Navigation -->
+    <nav class="relative z-10 w-full max-w-4xl mx-auto px-6 py-6 flex justify-between items-center">
+        <div class="flex items-center gap-2 group cursor-default">
+            <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                <div class="w-1.5 h-1.5 bg-black rounded-full"></div>
+            </div>
+            <span class="text-sm font-medium tracking-tight text-white group-hover:opacity-80 transition-opacity">SIGNAL</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="#" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Login</a>
+            <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 text-white border border-white/10">BETA</span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="relative z-10 w-full max-w-4xl mx-auto px-6 pt-24 pb-32 text-center">
+        <div class="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-10 backdrop-blur-sm">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+            <span class="text-sm font-medium text-neutral-300">Founding Beta Open</span>
+        </div>
+
+        <h1 class="text-4xl sm:text-5xl md:text-6xl font-medium tracking-tight text-white mb-8 leading-[1.1] text-center">
+            Stop letting bad days <span class="text-neutral-500">quietly</span> derail your career.
+        </h1>
+
+        <p class="text-base md:text-lg text-neutral-400 font-light leading-relaxed max-w-2xl mx-auto mb-14 text-center">
+            Ambitious people don't fail because they lack goals. They fail because sleep, stress, and life noise quietly distort their decisions.
+        </p>
+
+        <div class="flex flex-col items-center justify-center gap-2 text-center">
+            <div class="w-full max-w-md relative group">
+                <div class="absolute -inset-0.5 bg-gradient-to-r from-white/20 to-white/0 rounded-full blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
+                <form id="hero-signup" class="relative flex items-center gap-3 bg-black rounded-full p-1.5 pl-5 border border-white/10 focus-within:border-white/30 transition-colors shadow-2xl">
+                    <input name="email" type="email" placeholder="enter your email..." class="w-full bg-transparent border-none text-base text-white placeholder-neutral-600 focus:ring-0 py-2.5 outline-none" required="">
+                    <button type="submit" class="shrink-0 bg-white hover:bg-neutral-200 text-black text-sm font-medium px-5 py-2.5 rounded-full transition-colors flex items-center gap-1.5">
+                        <span>Request Access</span>
+                        <iconify-icon icon="solar:arrow-right-linear" width="14"></iconify-icon>
+                    </button>
+                </form>
+            </div>
+            <p id="hero-message" class="text-sm text-neutral-500 min-h-[1.25rem]">Join 50 founding members. Approval required.</p>
+        </div>
+
+        <!-- Abstract UI Preview -->
+        <div class="mt-20 relative mx-auto w-full max-w-md flex justify-center">
+            <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-40 h-40 bg-white/5 blur-3xl rounded-full pointer-events-none"></div>
+            <div class="glass-panel rounded-2xl p-6 text-left relative overflow-hidden">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0">
+                            <iconify-icon icon="solar:microphone-3-linear" width="18"></iconify-icon>
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium text-white">Morning Debrief</div>
+                            <div class="text-xs text-neutral-500">08:42 AM • 3 min 12s</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-0.5 h-4">
+                        <div class="w-0.5 bg-white/40 rounded-full wave-bar" style="animation-duration: 0.8s"></div>
+                        <div class="w-0.5 bg-white/40 rounded-full wave-bar" style="animation-duration: 1.1s"></div>
+                        <div class="w-0.5 bg-white/40 rounded-full wave-bar" style="animation-duration: 0.9s"></div>
+                        <div class="w-0.5 bg-white/40 rounded-full wave-bar" style="animation-duration: 1.2s"></div>
+                        <div class="w-0.5 bg-white/40 rounded-full wave-bar" style="animation-duration: 0.7s"></div>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                        <div class="flex items-center gap-2 mb-1">
+                            <iconify-icon icon="solar:sort-by-time-linear" class="text-neutral-400 shrink-0" width="14"></iconify-icon>
+                            <span class="text-xs uppercase tracking-wider font-medium text-neutral-400">Pattern Detected</span>
+                        </div>
+                        <p class="text-sm text-neutral-200 leading-relaxed">High-intensity session logged. The last time you ignored recovery, your performance dipped.</p>
+                    </div>
+                    <div class="bg-yellow-500/5 rounded-lg p-3 border border-yellow-500/10">
+                        <div class="flex items-center gap-2 mb-1">
+                            <iconify-icon icon="solar:lightbulb-linear" class="text-yellow-400/80 shrink-0" width="14"></iconify-icon>
+                            <span class="text-xs uppercase tracking-wider font-medium text-yellow-400/60">Recommendation</span>
+                        </div>
+                        <p class="text-sm text-yellow-200/80 leading-relaxed">Let today's work settle before you push again.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- The Problem Section -->
+    <section class="relative z-10 py-20 border-t border-white/5">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row gap-12 md:gap-16">
+                <div class="md:w-1/3">
+                    <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">THE PROBLEM</h2>
+                    <h3 class="text-xl md:text-2xl text-neutral-400 font-light leading-tight">
+                        You're capable.<br>
+                        <span class="text-white">But some days, you are your own bottleneck.</span>
+                    </h3>
+                </div>
+                <div class="md:w-2/3 grid gap-6 sm:grid-cols-2">
+                    <div class="space-y-1.5">
+                        <iconify-icon icon="solar:cloud-linear" class="text-neutral-500 shrink-0" width="20"></iconify-icon>
+                        <h4 class="text-sm font-medium text-white">Brain Fog</h4>
+                        <p class="text-xs text-neutral-500 leading-relaxed">You wake up groggy. Everything feels harder. Simple tasks take double the time.</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        <iconify-icon icon="solar:bomb-linear" class="text-neutral-500 shrink-0" width="20"></iconify-icon>
+                        <h4 class="text-sm font-medium text-white">Fragile Focus</h4>
+                        <p class="text-xs text-neutral-500 leading-relaxed">A small conflict ruins your focus for hours. You can't snap back into flow.</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        <iconify-icon icon="solar:clock-circle-linear" class="text-neutral-500 shrink-0" width="20"></iconify-icon>
+                        <h4 class="text-sm font-medium text-white">Anxious Overcommitment</h4>
+                        <p class="text-xs text-neutral-500 leading-relaxed">You say "yes" because you feel behind, overloading your future self.</p>
+                    </div>
+                    <div class="space-y-1.5">
+                        <iconify-icon icon="solar:graph-down-linear" class="text-neutral-500 shrink-0" width="20"></iconify-icon>
+                        <h4 class="text-sm font-medium text-white">Blind Patterns</h4>
+                        <p class="text-xs text-neutral-500 leading-relaxed">You make strategic decisions while emotionally off-balance, realizing it only weeks later.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-14 pt-14 border-t border-white/5 text-center">
+                <p class="text-base font-medium text-white tracking-tight">There's no dashboard for your cognitive performance.</p>
+                <p class="text-sm text-neutral-500 mt-1.5">Until now.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- The Solution Section -->
+    <section class="relative z-10 py-20 bg-neutral-900/20">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">THE SOLUTION</h2>
+                <h3 class="text-xl md:text-2xl font-medium text-white tracking-tight mb-4">3-Minute Voice Debrief → Performance Insight</h3>
+                <p class="text-sm text-neutral-400 max-w-lg mx-auto">Open the app. Speak freely. <span class="italic text-neutral-300">"Slept badly. Skipped gym. Weird vibe with manager."</span> We do the rest.</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-5">
+                <div class="glass-panel p-5 rounded-xl hover:bg-white/5 transition-colors">
+                    <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white shrink-0">
+                        <iconify-icon icon="solar:clipboard-heart-linear" width="18"></iconify-icon>
+                    </div>
+                    <h4 class="text-sm font-medium text-white mb-1.5">State Summary</h4>
+                    <p class="text-xs text-neutral-400 leading-relaxed">
+                        Instant analysis of your cognitive energy. Detects rumination patterns before they spiral.
+                    </p>
+                </div>
+                <div class="glass-panel p-5 rounded-xl hover:bg-white/5 transition-colors">
+                    <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white shrink-0">
+                        <iconify-icon icon="solar:flag-linear" width="18"></iconify-icon>
+                    </div>
+                    <h4 class="text-sm font-medium text-white mb-1.5">Performance Risk</h4>
+                    <p class="text-xs text-neutral-400 leading-relaxed">
+                        Flags when your strategic thinking is impaired. Prevents irreversible bad decisions.
+                    </p>
+                </div>
+                <div class="glass-panel p-5 rounded-xl hover:bg-white/5 transition-colors">
+                    <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-white shrink-0">
+                        <iconify-icon icon="solar:route-linear" width="18"></iconify-icon>
+                    </div>
+                    <h4 class="text-sm font-medium text-white mb-1.5">Execution Guidance</h4>
+                    <p class="text-xs text-neutral-400 leading-relaxed">
+                        Tailored advice: "Prioritize short deep-work blocks" or "Delay meetings".
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-6 mt-10 text-xs text-neutral-500 font-medium">
+                <div class="flex items-center gap-2">
+                    <iconify-icon icon="solar:forbidden-circle-linear" class="text-neutral-600 shrink-0" width="14"></iconify-icon>
+                    No journaling templates
+                </div>
+                <div class="flex items-center gap-2">
+                    <iconify-icon icon="solar:forbidden-circle-linear" class="text-neutral-600 shrink-0" width="14"></iconify-icon>
+                    No habit streak guilt
+                </div>
+                <div class="flex items-center gap-2">
+                    <iconify-icon icon="solar:forbidden-circle-linear" class="text-neutral-600 shrink-0" width="14"></iconify-icon>
+                    No motivational fluff
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <span class="text-sm text-white font-medium border-b border-white/20 pb-0.5">Just signal.</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tracking / Insights Section -->
+    <section class="relative z-10 py-20">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">WHAT IT TRACKS (OVER TIME)</h2>
+                    <div class="space-y-0">
+                        <div class="flex items-center justify-between gap-3 py-3 border-b border-white/5">
+                            <span class="text-sm text-neutral-300">Sleep</span>
+                            <iconify-icon icon="solar:arrow-right-linear" class="text-neutral-400 shrink-0" width="14"></iconify-icon>
+                            <span class="text-sm text-white font-medium">Decision Quality</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 py-3 border-b border-white/5">
+                            <span class="text-sm text-neutral-300">Stress</span>
+                            <iconify-icon icon="solar:arrow-right-linear" class="text-neutral-400 shrink-0" width="14"></iconify-icon>
+                            <span class="text-sm text-white font-medium">Focus Consistency</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 py-3 border-b border-white/5">
+                            <span class="text-sm text-neutral-300">Conflict</span>
+                            <iconify-icon icon="solar:arrow-right-linear" class="text-neutral-400 shrink-0" width="14"></iconify-icon>
+                            <span class="text-sm text-white font-medium">Cognitive Bandwidth</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 py-3 border-b border-white/5">
+                            <span class="text-sm text-neutral-300">Emotional Spikes</span>
+                            <iconify-icon icon="solar:arrow-right-linear" class="text-neutral-400 shrink-0" width="14"></iconify-icon>
+                            <span class="text-sm text-white font-medium">Overcommitment</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent rounded-2xl blur-xl"></div>
+                    <div class="glass-panel p-6 rounded-2xl relative">
+                        <h4 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">30-Day Report</h4>
+                        <div class="space-y-4">
+                            <div class="flex gap-3 items-start">
+                                <div class="mt-1.5 w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" aria-hidden="true"></div>
+                                <p class="text-sm text-neutral-300 leading-relaxed">"Sleep under 6h reduces your deep work output by <span class="text-white font-medium">34%</span>."</p>
+                            </div>
+                            <div class="flex gap-3 items-start">
+                                <div class="mt-1.5 w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" aria-hidden="true"></div>
+                                <p class="text-sm text-neutral-300 leading-relaxed">"Conflict days lower your execution consistency for <span class="text-white font-medium">48h</span>."</p>
+                            </div>
+                            <div class="flex gap-3 items-start">
+                                <div class="mt-1.5 w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" aria-hidden="true"></div>
+                                <p class="text-sm text-neutral-300 leading-relaxed">"You perform best <span class="text-white font-medium">1–2 days</span> after high-intensity exercise."</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 pt-5 border-t border-white/10 flex justify-between items-center">
+                            <span class="text-[10px] text-neutral-500">GENERATED BY ENGINE</span>
+                            <span class="text-xs text-white font-medium tracking-tight">Performance Intelligence</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Audience -->
+    <section class="relative z-10 py-20 bg-neutral-900/30 border-y border-white/5">
+        <div class="max-w-4xl mx-auto px-6 grid md:grid-cols-2 gap-12">
+            <div class="flex flex-col items-center text-center md:items-center md:text-center">
+                <h3 class="text-sm font-medium text-white mb-4 flex flex-col items-center gap-2">
+                    <iconify-icon icon="solar:check-circle-linear" class="text-white shrink-0" width="20"></iconify-icon>
+                    <span>Who this is for</span>
+                </h3>
+                <ul class="space-y-2">
+                    <li class="text-sm text-neutral-400">High-agency operators</li>
+                    <li class="text-sm text-neutral-400">Early-career builders</li>
+                    <li class="text-sm text-neutral-400">Founders</li>
+                    <li class="text-sm text-neutral-400">Ambitious students</li>
+                    <li class="text-sm text-neutral-400">People who care about compounding</li>
+                </ul>
+            </div>
+            <div class="flex flex-col items-center text-center md:items-center md:text-center">
+                <h3 class="text-sm font-medium text-neutral-500 mb-4 flex flex-col items-center gap-2">
+                    <iconify-icon icon="solar:close-circle-linear" class="text-neutral-600 shrink-0" width="20"></iconify-icon>
+                    <span>Not for</span>
+                </h3>
+                <ul class="space-y-2">
+                    <li class="text-sm text-neutral-600">Casual goal-setters</li>
+                    <li class="text-sm text-neutral-600">Aesthetic journaling enthusiasts</li>
+                    <li class="text-sm text-neutral-600">People who don't want feedback</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Promise -->
+    <section class="text-center z-10 py-20 relative">
+        <div class="max-w-4xl mx-auto px-6">
+            <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">The Promise</h2>
+            <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="flex flex-col items-center justify-center text-center">
+                    <iconify-icon icon="solar:chart-square-linear" class="text-white mb-3 block" width="26"></iconify-icon>
+                    <p class="text-sm font-medium text-white">More consistent output</p>
+                </div>
+                <div class="flex flex-col items-center justify-center text-center">
+                    <iconify-icon icon="solar:clock-square-linear" class="text-white mb-3 block" width="26"></iconify-icon>
+                    <p class="text-sm font-medium text-white">Better decision timing</p>
+                </div>
+                <div class="flex flex-col items-center justify-center text-center">
+                    <iconify-icon icon="solar:shield-warning-linear" class="text-white mb-3 block" width="26"></iconify-icon>
+                    <p class="text-sm font-medium text-white">Fewer self-sabotage cycles</p>
+                </div>
+                <div class="flex flex-col items-center justify-center text-center">
+                    <iconify-icon icon="solar:stars-linear" class="text-white mb-3 block" width="26"></iconify-icon>
+                    <p class="text-sm font-medium text-white">Long-term success probability</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="relative z-10 py-20">
+        <div class="max-w-xl mx-auto px-6 text-center">
+            <div class="glass-panel p-1 rounded-2xl border border-white/10 bg-neutral-900/50">
+                <div class="p-6 rounded-xl bg-black border border-white/5">
+                    <h2 class="text-xl font-medium text-white tracking-tight mb-2">Join the Private Beta</h2>
+                    <p class="text-sm text-neutral-400 mb-5">
+                        We're inviting 50 founding users. Early members shape the product and get lifetime discounted access.
+                    </p>
+                    <p class="text-xs font-medium text-white mb-4">If you care about optimising your performance</p>
+                    <form id="cta-signup" class="relative flex flex-col gap-3 items-stretch">
+                        <div class="flex items-center bg-white/5 rounded-lg p-1.5 border border-white/10 focus-within:border-white/30 transition-colors">
+                            <input name="email" type="email" placeholder="name@work.com" class="w-full bg-transparent border-none text-sm text-white placeholder-neutral-600 focus:ring-0 px-4 py-2.5 outline-none" required="">
+                            <button type="submit" class="shrink-0 bg-white hover:bg-neutral-200 text-black text-xs font-medium px-4 py-2.5 rounded-md transition-colors">
+                                Join Beta
+                            </button>
+                        </div>
+                        <p id="cta-message" class="text-xs text-neutral-400 min-h-[1rem]"></p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="relative z-10 py-10 border-t border-white/5 text-center">
+        <div class="max-w-4xl mx-auto px-6 flex flex-col items-center gap-3">
+            <div class="flex items-center gap-2 opacity-50">
+                <div class="w-3 h-3 bg-white rounded-full flex items-center justify-center">
+                    <div class="w-1 h-1 bg-black rounded-full"></div>
+                </div>
+                <span class="text-xs font-medium tracking-tight text-white">SIGNAL</span>
+            </div>
+            <p class="text-[11px] text-neutral-600">Built for ambitious people who want signal over noise.</p>
+            <p class="text-[11px] text-neutral-700">© 2023 Signal Engine. For better performance awareness.</p>
+        </div>
+    </footer>
+
+    <script>
+      function showMessage(el, text, isError) {
+        if (!el) return;
+        el.textContent = text;
+        el.className = isError ? "text-xs text-red-400/90 min-h-[1rem]" : "text-xs text-green-400/90 min-h-[1rem]";
+        if (el.id === "hero-message") el.className = (isError ? "text-sm text-red-400/90" : "text-sm text-green-400/90") + " min-h-[1.25rem]";
+      }
+      function handleSignup(form, messageEl) {
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var input = form.querySelector('input[name="email"]');
+          var btn = form.querySelector('button[type="submit"]');
+          var email = (input && input.value || "").trim();
+          if (!email) return;
+          var btnText = btn ? btn.innerHTML : "";
+          if (btn) { btn.disabled = true; btn.innerHTML = "<span>…</span>"; }
+          fetch("/api/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email })
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (_) {
+              var ok = _.ok, data = _.data;
+              showMessage(messageEl, data.message || (ok ? "Done." : data.error || "Something went wrong."), !ok);
+              if (btn) { btn.disabled = false; btn.innerHTML = btnText; }
+            })
+            .catch(function () {
+              showMessage(messageEl, "Network error. Try again.", true);
+              if (btn) { btn.disabled = false; btn.innerHTML = btnText; }
+            });
+        });
+      }
+      if (document.getElementById("hero-signup")) handleSignup(document.getElementById("hero-signup"), document.getElementById("hero-message"));
+      if (document.getElementById("cta-signup")) handleSignup(document.getElementById("cta-signup"), document.getElementById("cta-message"));
+    </script>
+</body></html>
