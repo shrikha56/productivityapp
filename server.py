@@ -20,6 +20,8 @@ from flask import Flask, request, jsonify, send_from_directory, Response
 
 # Import API logic from Vercel functions
 from api.analyze import get_supabase, analyze_with_gpt
+import importlib
+weekly_report_mod = importlib.import_module("api.weekly-report")
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
@@ -166,6 +168,64 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/weekly-report", methods=["POST"])
+def weekly_report():
+    data = request.get_json(force=True, silent=True) or {}
+
+    # Demo mode: use test data + real GPT
+    if data.get("demo"):
+        test_entries = [
+            {"date": "2026-02-17", "sleep_hours": 6, "sleep_quality": 2, "energy": 2, "deep_work_blocks": 0,
+             "reflection_summary": "Stayed up until 2am scrolling. Woke up groggy at 8. Had a lecture at 10 but couldn't focus. Spent most of the day on admin tasks. Felt scattered and unmotivated. Skipped the gym.",
+             "likely_drivers": ["Late-night phone use disrupted melatonin production", "Sleep debt reduced executive function"], "experiment_for_tomorrow": "Phone in another room by 11pm"},
+            {"date": "2026-02-18", "sleep_hours": 7.5, "sleep_quality": 3, "energy": 3, "deep_work_blocks": 1,
+             "reflection_summary": "Better sleep but still felt residual tiredness. Got one deep work block on my assignment in the morning. After lunch energy crashed hard. Ate too much pasta. Spent afternoon in meetings that could have been emails.",
+             "likely_drivers": ["Post-lunch glucose crash", "Residual sleep debt from previous night"], "experiment_for_tomorrow": "Light lunch, walk after eating"},
+            {"date": "2026-02-19", "sleep_hours": 7, "sleep_quality": 4, "energy": 4, "deep_work_blocks": 2,
+             "reflection_summary": "Slept well. Woke up at 7:30 naturally. Got two solid deep work blocks before noon. Felt locked in. Phone was in another room which helped. Had a great conversation with a classmate about the project. Energy dipped slightly around 3pm but recovered.",
+             "likely_drivers": ["Phone removal reduced attentional residue", "Morning deep work leveraged peak cortisol"], "experiment_for_tomorrow": "Repeat morning routine"},
+            {"date": "2026-02-20", "sleep_hours": 5.5, "sleep_quality": 2, "energy": 2, "deep_work_blocks": 0,
+             "reflection_summary": "Deadline stress kept me up. Worked until 1am on the assignment. Woke up at 6:30 feeling terrible. Couldn't concentrate in any lecture. Had 3 coffees by noon. Felt jittery and anxious. No deep work happened. The work I did last night was probably low quality anyway.",
+             "likely_drivers": ["Acute sleep restriction impaired prefrontal cortex", "Caffeine-induced anxiety", "Decision fatigue from deadline pressure"], "experiment_for_tomorrow": "Set hard stop at 11pm regardless of deadline"},
+            {"date": "2026-02-21", "sleep_hours": 8, "sleep_quality": 4, "energy": 3, "deep_work_blocks": 1,
+             "reflection_summary": "Crashed early at 9pm, slept 8 hours. Body needed recovery. Morning was slow to start, felt like I was coming out of a fog. By afternoon managed one focused session. Submitted the assignment. Felt relief but also drained. Went for a walk which helped clear my head.",
+             "likely_drivers": ["Recovery sleep restored some executive function", "Post-deadline relief reduced cognitive load"], "experiment_for_tomorrow": "Morning walk before any screens"},
+            {"date": "2026-02-22", "sleep_hours": 7.5, "sleep_quality": 4, "energy": 4, "deep_work_blocks": 2,
+             "reflection_summary": "Good sleep again. Started with a 20min walk, then straight into deep work. Got two blocks done on the new project. Lunch was light — salad and protein. Afternoon energy stayed high. Didn't touch phone until 2pm. This felt like my best day this week.",
+             "likely_drivers": ["Consistent sleep restored working memory", "Morning walk elevated baseline arousal", "Delayed phone use prevented attentional residue"], "experiment_for_tomorrow": "Replicate: walk → deep work → light lunch"},
+            {"date": "2026-02-23", "sleep_hours": 7, "sleep_quality": 3, "energy": 3, "deep_work_blocks": 1,
+             "reflection_summary": "Decent sleep but woke up once around 3am — might have been the late dinner. Started slower today. One deep work block in the morning. Got distracted by social media after lunch. Had a productive conversation about my project with my boss. Feeling okay overall, not great not terrible.",
+             "likely_drivers": ["Late dinner disrupted sleep continuity", "Social media broke afternoon focus momentum"], "experiment_for_tomorrow": "Dinner before 8pm, block social media until 4pm"},
+        ]
+        report = weekly_report_mod.generate_weekly_report(test_entries, api_key=OPENAI_KEY)
+        if report.get("error") and not report.get("week_narrative"):
+            return jsonify(report), 503
+        return jsonify(report)
+
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+
+    supabase = get_supabase()
+    if not supabase:
+        return jsonify({"error": "Server not configured"}), 503
+
+    try:
+        result = supabase.table("entries").select("*").eq("user_id", user_id).order("date", desc=True).limit(30).execute()
+        entries = result.data or []
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch entries: {e}"}), 500
+
+    if len(entries) < 7:
+        return jsonify({"locked": True, "entries_count": len(entries), "needed": 7})
+
+    report = weekly_report_mod.generate_weekly_report(entries[:14], api_key=OPENAI_KEY)
+    if report.get("error") and not report.get("week_narrative"):
+        return jsonify(report), 503
+
+    return jsonify(report)
+
+
 def _fallback_clarify(text: str) -> list:
     """Return simple clarifying questions when GPT is not available."""
     t = text.lower()
@@ -206,32 +266,25 @@ def check_topics():
     try:
         import openai
         client = openai.OpenAI(api_key=OPENAI_KEY)
-        prompt = f"""A user's daily reflection must meaningfully address 3 topics. A vague mention is NOT enough — they need to provide real detail.
+        prompt = f"""A user recorded a daily voice reflection. Check if 3 topics are covered. This is informal speech — look for ANY mention, even brief or indirect. Be lenient. When in doubt, mark as ADDRESSED.
 
 TOPIC 1 — "How did you sleep?"
-ADDRESSED: they give AT LEAST TWO specifics: duration, quality description, disruptions, bedtime, or how they woke up.
-"slept 7 hours, woke up twice" → ADDRESSED (duration + disruption)
-"went to bed at 11, woke up groggy" → ADDRESSED (bedtime + wake quality)
-"slept okay" → NOT ADDRESSED (only one vague word)
-"slept fine today" → NOT ADDRESSED (no real detail)
-"i slept alright" → NOT ADDRESSED (too vague)
+ADDRESSED if they mention sleep at all: waking up, sleep time, sleep quality, tiredness from sleep, wanting to sleep more, etc.
+Examples: "woke up at 7", "slept well", "didn't sleep enough", "wanted to sleep in" → all ADDRESSED
 
 TOPIC 2 — "What are you feeling?"
-ADDRESSED: they describe their current emotional state, mood, or energy level for the day.
-"I feel low today", "my energy is drained", "I'm stressed" → ADDRESSED
-"felt groggy waking up", "felt restless at night" → NOT ADDRESSED (describes sleep, not current feeling)
-"okay" or "fine" without context → NOT ADDRESSED (too vague)
+ADDRESSED if they describe ANY emotion, energy state, or physical feeling during the day.
+Examples: "felt tired", "was energetic", "felt unproductive", "I'm sick", "was lethargic", "felt overwhelmed" → all ADDRESSED
 
 TOPIC 3 — "What did you attempt?"
-ADDRESSED: they describe what they worked on, tried, or did during the day (or said they did nothing).
-"worked on my project", "did nothing today", "went to class" → ADDRESSED
-No mention of any activity → NOT ADDRESSED
+ADDRESSED if they mention ANY activity, work, or what they did (or didn't do).
+Examples: "went to work", "had a meeting", "worked on my app", "did nothing", "went to class" → all ADDRESSED
 
 Reflection: "{text[:1200]}"
 
-Return JSON array of MISSING topics. Use exact strings:
+Return JSON array of ONLY truly missing topics (topics with ZERO mention). Use exact strings:
 ["How did you sleep?", "What are you feeling?", "What did you attempt?"]
-Return [] only if ALL three are meaningfully addressed with detail."""
+Return [] if all three are mentioned even briefly."""
         r = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.1, max_tokens=100)
         raw = (r.choices[0].message.content or "").strip()
         if raw.startswith("```"): raw = raw.split("```")[1].replace("json", "").strip()

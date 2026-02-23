@@ -84,12 +84,12 @@
             <h2 class="text-xs font-medium text-neutral-400 uppercase tracking-widest">Reflect on your day</h2>
           </div>
           <div class="flex gap-2 mb-4">
-            <button type="button" id="tab-voice" class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors">Voice</button>
-            <button type="button" id="tab-type" class="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium">Type</button>
+            <button type="button" id="tab-voice" class="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium">Voice</button>
+            <button type="button" id="tab-type" class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors">Type</button>
           </div>
 
           <!-- Type mode -->
-          <div id="type-area" class="space-y-4">
+          <div id="type-area" class="hidden space-y-4">
             <div class="min-h-[80px]">
               <textarea name="transcript" id="transcript-input" rows="3" placeholder="Start typing… How did you sleep? What are you feeling? What did you attempt?"
                 class="w-full bg-transparent border-0 px-0 py-2 text-sm text-white placeholder-neutral-500 focus:ring-0 outline-none resize-none"></textarea>
@@ -103,7 +103,7 @@
           </div>
 
           <!-- Voice mode -->
-          <div id="voice-area" class="hidden">
+          <div id="voice-area" class="">
             <div class="min-h-[60px] mb-4">
               <p id="voice-preview" class="text-sm text-neutral-300 min-h-[1.25rem]"></p>
             </div>
@@ -111,12 +111,26 @@
               <canvas id="waveCanvas" class="wave-canvas"></canvas>
             </div>
             <div class="flex flex-col items-center gap-3">
-              <button type="button" id="record-btn" class="mic-btn">
-                <iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>
-              </button>
+              <div class="flex items-center gap-4">
+                <button type="button" id="record-btn" class="mic-btn">
+                  <iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>
+                </button>
+                <button type="button" id="pause-btn" class="mic-btn hidden" style="width:42px;height:42px;">
+                  <iconify-icon icon="solar:pause-linear" width="20" height="20"></iconify-icon>
+                </button>
+              </div>
               <span id="record-label" class="text-xs text-neutral-500">Tap to record</span>
+              <span id="record-timer" class="text-xs text-neutral-500 tabular-nums hidden">0:00</span>
             </div>
-            <div id="transcript-preview" class="mt-4 p-3 rounded-lg glass-nested text-sm text-neutral-300 hidden"></div>
+            <div id="transcript-preview" class="mt-4 p-3 rounded-lg glass-nested text-sm text-neutral-300 whitespace-pre-line hidden"></div>
+            <div id="voice-actions" class="flex justify-center gap-3 mt-3 hidden">
+              <button type="button" id="start-over-btn" class="text-xs px-4 py-2 rounded-lg border border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white transition-colors">Start over</button>
+              <button type="button" id="add-more-btn" class="text-xs px-4 py-2 rounded-lg border border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white transition-colors">Add more</button>
+            </div>
+            <div id="voice-clarify-area" class="mt-4 pt-4 border-t border-white/10 space-y-3 hidden">
+              <p id="voice-clarify-label" class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">Questions to deepen your reflection</p>
+              <div id="voice-clarify-questions" class="flex flex-wrap gap-2"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -175,18 +189,21 @@
     document.querySelector('[name="sleep_quality"]').oninput = (e) => { document.getElementById('sleep-quality-val').textContent = e.target.value; };
     document.querySelector('[name="energy"]').oninput = (e) => { document.getElementById('energy-val').textContent = e.target.value; };
 
+    const TAB_ACTIVE = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
+    const TAB_INACTIVE = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
+
     document.getElementById('tab-type').onclick = () => {
       document.getElementById('type-area').classList.remove('hidden');
       document.getElementById('voice-area').classList.add('hidden');
-      document.getElementById('tab-type').className = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
-      document.getElementById('tab-voice').className = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
+      document.getElementById('tab-type').className = TAB_ACTIVE;
+      document.getElementById('tab-voice').className = TAB_INACTIVE;
       if (window.waveAnim) window.waveAnim.pause();
     };
     document.getElementById('tab-voice').onclick = () => {
       document.getElementById('voice-area').classList.remove('hidden');
       document.getElementById('type-area').classList.add('hidden');
-      document.getElementById('tab-voice').className = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
-      document.getElementById('tab-type').className = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
+      document.getElementById('tab-voice').className = TAB_ACTIVE;
+      document.getElementById('tab-type').className = TAB_INACTIVE;
       if (window.waveAnim) window.waveAnim.resume();
     };
 
@@ -302,11 +319,17 @@
       pendingOverwritePayload = null;
     };
 
-    (function initWaves() {
+    /* ── Voice-reactive waveform + recording ── */
+    (function initVoiceSystem() {
       const canvas = document.getElementById('waveCanvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       let rafId, paused = true;
+
+      /* Audio analysis state — driven by mic when recording */
+      let audioCtx, analyser, dataArray;
+      let audioLevel = 0;        // 0–1 smoothed mic loudness
+      const SMOOTHING = 0.06;    // lower = smoother, more fluid
 
       function resize() {
         const rect = canvas.getBoundingClientRect();
@@ -318,19 +341,37 @@
       }
 
       const waves = [
-        { color: [255, 255, 255], speed: 1.8, freq: 1.4, phase: 0, amp: 1.0, lw: 2.2, op: 1.0 },
+        { color: [255, 255, 255], speed: 1.8, freq: 1.4, phase: 0,   amp: 1.0,  lw: 2.2, op: 1.0  },
         { color: [120, 180, 255], speed: 1.2, freq: 1.1, phase: 0.8, amp: 0.75, lw: 1.6, op: 0.85 },
-        { color: [90, 150, 255], speed: 2.2, freq: 1.8, phase: 1.6, amp: 0.55, lw: 1.4, op: 0.7 },
+        { color: [90,  150, 255], speed: 2.2, freq: 1.8, phase: 1.6, amp: 0.55, lw: 1.4, op: 0.7  },
         { color: [140, 190, 255], speed: 0.9, freq: 0.9, phase: 2.5, amp: 0.45, lw: 1.2, op: 0.55 },
-        { color: [70, 130, 255], speed: 1.5, freq: 2.2, phase: 3.2, amp: 0.35, lw: 1.0, op: 0.45 },
+        { color: [70,  130, 255], speed: 1.5, freq: 2.2, phase: 3.2, amp: 0.35, lw: 1.0, op: 0.45 },
       ];
 
-      function drawWave(wave, elapsed) {
+      const IDLE_SCALE = 0.55;   // visible idle breathing
+      const ACTIVE_SCALE = 1.0;  // full amplitude when loud
+
+      function sampleMic() {
+        if (!analyser || !dataArray) return;
+        analyser.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const v = (dataArray[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const target = Math.min(rms * 2.2, 1);
+        // Asymmetric smoothing: rise gently, fall even more gently
+        const rate = target > audioLevel ? SMOOTHING : SMOOTHING * 0.5;
+        audioLevel += (target - audioLevel) * rate;
+      }
+
+      function drawWave(wave, elapsed, scale) {
         const W = canvas.getBoundingClientRect().width;
         const H = canvas.getBoundingClientRect().height;
         if (W <= 0 || H <= 0) return;
         const cx = W / 2, cy = H / 2;
-        const maxAmp = H * 0.32 * wave.amp;
+        const maxAmp = H * 0.32 * wave.amp * scale;
         const points = [];
         const steps = 200;
         for (let i = 0; i <= steps; i++) {
@@ -351,16 +392,18 @@
         }
         ctx.lineTo(points[points.length-1][0], points[points.length-1][1]);
         const [r, g, b] = wave.color;
-        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.op})`;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.op * Math.max(scale, 0.55)})`;
         ctx.lineWidth = wave.lw;
         ctx.lineCap = 'round';
-        ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = `rgba(${r},${g},${b},${Math.max(0.35, 0.6 * scale)})`;
+        ctx.shadowBlur = Math.max(5, 10 * scale);
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
 
       let lastTime = 0, elapsed = 0;
+      let isRecording = false;
+
       function animate(now) {
         if (paused) return;
         const dt = Math.min((now - lastTime) / 1000, 0.05);
@@ -369,12 +412,27 @@
         const W = canvas.getBoundingClientRect().width;
         const H = canvas.getBoundingClientRect().height;
         ctx.clearRect(0, 0, W, H);
-        waves.forEach(w => drawWave(w, elapsed));
+
+        if (isRecording) sampleMic();
+        else audioLevel *= 0.95; // decay when not recording
+
+        const breath = 0.5 + 0.5 * Math.sin(elapsed * 0.8);
+        const scale = isRecording
+          ? IDLE_SCALE + (ACTIVE_SCALE - IDLE_SCALE) * audioLevel
+          : IDLE_SCALE * (0.6 + 0.4 * breath);
+
+        const speedMult = isRecording ? 1 + audioLevel * 0.6 : 0.8;
+        waves.forEach(w => {
+          const origSpeed = w.speed;
+          w.speed = origSpeed * speedMult;
+          drawWave(w, elapsed, scale);
+          w.speed = origSpeed;
+        });
         rafId = requestAnimationFrame(animate);
       }
 
       window.waveAnim = {
-        resume: function() {
+        resume() {
           if (paused) {
             paused = false;
             resize();
@@ -382,84 +440,289 @@
             rafId = requestAnimationFrame(animate);
           }
         },
-        pause: function() {
+        pause() {
           paused = true;
           if (rafId) cancelAnimationFrame(rafId);
+        },
+        setRecording(val) { isRecording = val; },
+        setMicPaused(val) { if (!val && isRecording) audioLevel *= 0.5; },
+        connectStream(stream) {
+          audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.smoothingTimeConstant = 0.7;
+          dataArray = new Uint8Array(analyser.fftSize);
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
         }
       };
       window.addEventListener('resize', resize);
     })();
 
+    // Voice is the default tab — start animation on load
+    if (window.waveAnim) window.waveAnim.resume();
+
+    /* ── Recording logic ── */
+    let activeRecorder = null;
+    let activeStream = null;
+    let recordingTimer = null;
+    let recordingStart = 0;
+    let pausedElapsed = 0;
+    let isPaused = false;
+    const MAX_RECORDING_MS = 180000;
+
+    function resetRecordBtn() {
+      const btn = document.getElementById('record-btn');
+      const label = document.getElementById('record-label');
+      const timer = document.getElementById('record-timer');
+      const pauseBtn = document.getElementById('pause-btn');
+      btn.dataset.recording = '';
+      btn.classList.remove('recording');
+      btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+      label.textContent = 'Tap to record';
+      timer.classList.add('hidden');
+      pauseBtn.classList.add('hidden');
+      isPaused = false;
+      pausedElapsed = 0;
+      if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+      if (window.waveAnim) window.waveAnim.setRecording(false);
+    }
+
+    function showPostRecordUI() {
+      document.getElementById('voice-actions').classList.remove('hidden');
+    }
+    function hidePostRecordUI() {
+      document.getElementById('voice-actions').classList.add('hidden');
+    }
+
+    function formatTime(ms) {
+      const s = Math.floor(ms / 1000);
+      return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    async function handleTranscriptionResult(data, append) {
+      if (data.error) { alert(data.error); return; }
+      if (!data.transcript) return;
+      const newText = data.transcript;
+      const ta = document.getElementById('transcript-input');
+      const prev = document.getElementById('transcript-preview');
+
+      if (append && ta.value.trim()) {
+        ta.value = ta.value.trim() + ' ' + newText;
+      } else {
+        ta.value = newText;
+      }
+      const full = ta.value;
+      prev.textContent = full;
+      prev.classList.remove('hidden');
+      document.getElementById('voice-preview').textContent = full.slice(0, 120) + (full.length > 120 ? '…' : '');
+      showPostRecordUI();
+
+      // Trigger clarifying questions
+      const vcArea = document.getElementById('voice-clarify-area');
+      const vcQuestions = document.getElementById('voice-clarify-questions');
+      vcQuestions.innerHTML = '';
+      vcArea.classList.add('hidden');
+      if (full.length >= 15) {
+        const fallback = getFallbackQuestions(full);
+        showVoiceClarify(fallback);
+        try {
+          const r = await fetch('/api/clarify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: full })
+          });
+          const cData = await r.json();
+          if (cData.questions && cData.questions.length) showVoiceClarify(cData.questions);
+        } catch (e) { /* fallback already shown */ }
+      }
+    }
+
+    function showVoiceClarify(questions) {
+      const vcArea = document.getElementById('voice-clarify-area');
+      const vcQuestions = document.getElementById('voice-clarify-questions');
+      vcQuestions.innerHTML = '';
+      if (!questions.length) return;
+      vcArea.classList.remove('hidden');
+      questions.forEach(q => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'text-left text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors';
+        chip.textContent = q;
+        chip.onclick = () => {
+          // Show the question as a prompt — user can record their answer
+          document.getElementById('voice-preview').textContent = q;
+          chip.classList.add('border-white/30', 'text-white', 'bg-white/10');
+          chip.disabled = true;
+        };
+        vcQuestions.appendChild(chip);
+      });
+    }
+
+    // Start over — clear everything
+    document.getElementById('start-over-btn').onclick = () => {
+      document.getElementById('transcript-input').value = '';
+      document.getElementById('transcript-preview').textContent = '';
+      document.getElementById('transcript-preview').classList.add('hidden');
+      document.getElementById('voice-preview').textContent = '';
+      document.getElementById('voice-clarify-area').classList.add('hidden');
+      document.getElementById('voice-clarify-questions').innerHTML = '';
+      hidePostRecordUI();
+    };
+
+    // Add more — record additional audio and append
+    document.getElementById('add-more-btn').onclick = () => {
+      hidePostRecordUI();
+      document.getElementById('record-btn').click();
+    };
+
+    // Pause / resume
+    document.getElementById('pause-btn').onclick = () => {
+      const pauseBtn = document.getElementById('pause-btn');
+      const label = document.getElementById('record-label');
+      if (!activeRecorder) return;
+
+      if (!isPaused && activeRecorder.state === 'recording') {
+        activeRecorder.pause();
+        isPaused = true;
+        pausedElapsed += Date.now() - recordingStart;
+        if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+        pauseBtn.innerHTML = '<iconify-icon icon="solar:play-linear" width="20" height="20"></iconify-icon>';
+        label.textContent = 'Paused';
+        if (window.waveAnim) window.waveAnim.setRecording(false);
+      } else if (isPaused && activeRecorder.state === 'paused') {
+        activeRecorder.resume();
+        isPaused = false;
+        recordingStart = Date.now();
+        recordingTimer = setInterval(() => {
+          document.getElementById('record-timer').textContent = formatTime(pausedElapsed + Date.now() - recordingStart);
+        }, 500);
+        pauseBtn.innerHTML = '<iconify-icon icon="solar:pause-linear" width="20" height="20"></iconify-icon>';
+        label.textContent = 'Recording…';
+        if (window.waveAnim) window.waveAnim.setRecording(true);
+      }
+    };
+
+    // Track whether this recording should append
+    let appendMode = false;
+
     document.getElementById('record-btn').onclick = async () => {
       const btn = document.getElementById('record-btn');
       const label = document.getElementById('record-label');
+      const timer = document.getElementById('record-timer');
+      const pauseBtn = document.getElementById('pause-btn');
+
+      // ── Stop recording ──
       if (btn.dataset.recording === 'true') {
-        btn.dataset.recording = '';
-        btn.classList.remove('recording');
-        btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
-        label.textContent = 'Tap to record';
+        label.textContent = 'Transcribing…';
+        pauseBtn.classList.add('hidden');
+        if (activeRecorder && (activeRecorder.state === 'recording' || activeRecorder.state === 'paused')) {
+          activeRecorder.stop();
+        }
         return;
       }
+
+      // Check if we're appending (existing transcript)
+      appendMode = !!document.getElementById('transcript-input').value.trim();
+      hidePostRecordUI();
+
+      // ── Start recording ──
       btn.dataset.recording = 'true';
       btn.classList.add('recording');
-      btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+      btn.innerHTML = '<iconify-icon icon="solar:stop-circle-linear" width="26" height="26"></iconify-icon>';
       label.textContent = 'Recording…';
+      timer.classList.remove('hidden');
+      timer.textContent = '0:00';
+      pauseBtn.classList.remove('hidden');
+      pauseBtn.innerHTML = '<iconify-icon icon="solar:pause-linear" width="20" height="20"></iconify-icon>';
+      isPaused = false;
+      pausedElapsed = 0;
+      recordingStart = Date.now();
+      recordingTimer = setInterval(() => {
+        timer.textContent = formatTime(pausedElapsed + Date.now() - recordingStart);
+      }, 500);
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        activeStream = stream;
+
+        if (window.waveAnim) {
+          window.waveAnim.connectStream(stream);
+          window.waveAnim.setRecording(true);
+        }
+
         const recorder = new MediaRecorder(stream);
+        activeRecorder = recorder;
         const chunks = [];
-        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
         recorder.onstop = async () => {
+          const shouldAppend = appendMode;
+          activeRecorder = null;
+          activeStream = null;
           stream.getTracks().forEach(t => t.stop());
+          if (window.waveAnim) window.waveAnim.setRecording(false);
+          if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+
+          btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+          label.textContent = 'Transcribing…';
+
+          if (chunks.length === 0) { resetRecordBtn(); return; }
           const blob = new Blob(chunks, { type: 'audio/webm' });
           const formData = new FormData();
           formData.append('audio', blob);
-          const r = await fetch('/api/transcribe', { method: 'POST', body: formData });
-          const data = await r.json();
-          if (data.error) {
-            btn.dataset.recording = '';
-            btn.classList.remove('recording');
-            btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
-            label.textContent = 'Tap to record';
-            alert(data.error);
-            return;
-          }
-          if (data.transcript) {
-            document.getElementById('transcript-input').value = data.transcript;
-            document.getElementById('transcript-preview').textContent = data.transcript;
-            document.getElementById('transcript-preview').classList.remove('hidden');
+          try {
+            const r = await fetch('/api/transcribe', { method: 'POST', body: formData });
+            const data = await r.json();
+            resetRecordBtn();
+            await handleTranscriptionResult(data, shouldAppend);
+          } catch (err) {
+            resetRecordBtn();
+            alert('Transcription failed. Please try again.');
           }
         };
+
         recorder.start();
-        setTimeout(() => { recorder.stop(); btn.dataset.recording = ''; btn.classList.remove('recording'); btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>'; label.textContent = 'Tap to record'; }, 10000);
+
+        setTimeout(() => {
+          if (activeRecorder && activeRecorder.state === 'recording') {
+            activeRecorder.stop();
+          }
+        }, MAX_RECORDING_MS);
+
       } catch (err) {
         alert('Microphone access denied');
-        btn.dataset.recording = '';
-        btn.classList.remove('recording');
-        btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
-        label.textContent = 'Tap to record';
+        resetRecordBtn();
       }
     };
 
     function clientFallbackCheck(text) {
       const t = (text || '').toLowerCase();
       const missing = [];
-      if (!/\b(sleep|slept|woke|wake|rest|nap|bed|hours?|asleep)\b/.test(t)) missing.push('How did you sleep?');
-      const hasFeelingPhrase = /(i feel|i'm feeling|my energy|my mood|i feel like today)\b/.test(t);
-      const hasFeelingWord = /\b(stressed|anxious|happy|sad|motivated|unmotivated|drained|bothered|down|low)\b/.test(t);
+      if (!/\b(sleep|slept|woke|wake|rest|nap|bed|hours?|asleep|morning|night|insomnia)\b/.test(t)) missing.push('How did you sleep?');
+      const hasFeelingPhrase = /\b(i feel|i felt|i'm feeling|i was feeling|my energy|my mood|felt very|felt so|felt more|felt like|felt really)\b/.test(t);
+      const hasFeelingWord = /\b(stressed|anxious|happy|sad|motivated|unmotivated|drained|bothered|down|low|tired|exhausted|sick|lethargic|energetic|unproductive|productive|groggy|heavy|okay|fine|great|calm|overwhelmed|frustrated)\b/.test(t);
       if (!hasFeelingPhrase && !hasFeelingWord) missing.push('What are you feeling?');
-      if (!/\b(work|worked|tried|did|task|meeting|study|exercise|nothing|chilled|project)\b/.test(t)) missing.push('What did you attempt?');
+      if (!/\b(work|worked|tried|did|task|meeting|study|exercise|nothing|chilled|project|class|went|boss|homework|lecture|focus|app|code|coding)\b/.test(t)) missing.push('What did you attempt?');
       return missing;
     }
+    function countUniqueWords(text) {
+      return new Set(text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 2)).size;
+    }
+
     async function getMissingTopics(text) {
       if (!text || text.trim().length < 5) return ['How did you sleep?', 'What are you feeling?', 'What did you attempt?'];
+      const clientMissing = clientFallbackCheck(text);
+      const uniqueWords = countUniqueWords(text);
+      // Rich reflection: 30+ unique words AND client check passes at least 2 of 3 topics
+      if (uniqueWords >= 30 && clientMissing.length <= 1) return [];
       try {
         const r = await fetch('/api/check-topics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) });
         const data = await r.json();
         if (r.ok && Array.isArray(data.missing)) return data.missing;
-        return clientFallbackCheck(text);
+        return clientMissing;
       } catch (err) {
-        return clientFallbackCheck(text);
+        return clientMissing;
       }
     }
 

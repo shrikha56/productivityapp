@@ -6,7 +6,7 @@
   <title>Weekly Report — Signal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/signal.css?v=2">
+  <link rel="stylesheet" href="/css/signal.css?v=3">
 </head>
 <body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
   <div class="noise-bg"></div>
@@ -25,28 +25,115 @@
   </nav>
 
   <main class="relative z-10 max-w-2xl mx-auto px-6 pb-24">
-    <h1 class="text-2xl font-medium text-white tracking-tight mb-8">Weekly Report</h1>
+    <!-- Locked state -->
     <div id="locked" class="glass-card rounded-2xl p-8 text-center">
-      <p class="text-sm text-neutral-400 mb-4">Complete 7 daily check-ins to unlock your weekly pattern report.</p>
+      <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+      </div>
+      <h2 class="text-sm font-medium text-white mb-2">Weekly Report Locked</h2>
+      <p class="text-sm text-neutral-400 mb-2">Complete 7 daily check-ins to unlock your weekly pattern report.</p>
+      <div class="flex justify-center gap-1.5 my-4" id="progress-dots"></div>
+      <p id="progress-text" class="text-xs text-neutral-500 mb-4"></p>
       <a href="/checkin" class="inline-block px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Go to check-in</a>
     </div>
-    <div id="report" class="hidden space-y-8">
+
+    <!-- Loading state -->
+    <div id="loading" class="hidden text-center py-16">
+      <div class="inline-block w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-3"></div>
+      <p class="text-sm text-neutral-400">Analyzing your week…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" class="hidden glass-card rounded-2xl p-8 text-center">
+      <p class="text-sm text-neutral-400 mb-4" id="error-msg">Something went wrong.</p>
+      <button id="retry-btn" class="px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Try again</button>
+    </div>
+
+    <!-- Report content -->
+    <div id="report" class="hidden space-y-6">
+      <header class="mb-2">
+        <h1 class="text-2xl font-medium text-white tracking-tight">Weekly Report</h1>
+        <p id="report-range" class="text-xs text-neutral-500 mt-1"></p>
+      </header>
+
+      <!-- Metrics bar -->
+      <div class="grid grid-cols-4 gap-3">
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-sleep" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Avg Sleep</p>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-quality" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Sleep Quality</p>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-energy" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Avg Energy</p>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-blocks" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Deep Work</p>
+        </div>
+      </div>
+
+      <!-- Week narrative -->
       <section class="glass-card rounded-2xl p-6">
-        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">Week Overview</h2>
-        <div id="overview" class="text-sm text-neutral-300 space-y-2"></div>
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week Overview</span>
+        <p id="narrative" class="text-sm text-neutral-200 mt-3 whitespace-pre-line leading-relaxed"></p>
       </section>
+
+      <!-- Recurring patterns -->
       <section class="glass-card rounded-2xl p-6">
-        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">Recurring Patterns</h2>
-        <ul id="patterns" class="text-sm text-neutral-300 space-y-2 list-disc list-inside"></ul>
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Recurring Patterns</span>
+        <ul id="patterns" class="mt-3 space-y-3"></ul>
       </section>
-      <section class="glass-card rounded-2xl p-6">
-        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">Top Derailers</h2>
-        <ul id="derailers" class="text-sm text-neutral-300 space-y-2 list-disc list-inside"></ul>
+
+      <!-- Top derailers -->
+      <section class="glass-card rounded-2xl p-6 border border-red-500/10">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-red-400/70">Top Derailers</span>
+        <ul id="derailers" class="mt-3 space-y-3"></ul>
       </section>
+
+      <!-- Bright spots -->
+      <section class="glass-card rounded-2xl p-6 border border-emerald-500/10">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-emerald-400/70">Bright Spots</span>
+        <ul id="bright-spots" class="mt-3 space-y-3"></ul>
+      </section>
+
+      <!-- Weekly experiment -->
       <section class="glass-card rounded-2xl p-6 border border-yellow-500/20">
-        <h2 class="text-xs font-medium text-yellow-400/80 uppercase tracking-widest mb-4">Experiments For Next Week</h2>
-        <ul id="experiments" class="text-sm text-yellow-200/90 space-y-2 list-disc list-inside"></ul>
+        <span class="text-[10px] uppercase tracking-wider font-medium text-yellow-400/80">Next Week's Experiment</span>
+        <div id="experiment" class="mt-3 space-y-3">
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Focus</p>
+            <p id="exp-focus" class="text-sm text-yellow-200/90 mt-1"></p>
+          </div>
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Protocol</p>
+            <p id="exp-protocol" class="text-sm text-neutral-300 mt-1"></p>
+          </div>
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Why This Works</p>
+            <p id="exp-mechanism" class="text-sm text-neutral-300 mt-1"></p>
+          </div>
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Success Metric</p>
+            <p id="exp-metric" class="text-sm text-neutral-300 mt-1"></p>
+          </div>
+        </div>
       </section>
+
+      <!-- Micro shifts -->
+      <section class="glass-card rounded-2xl p-6">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Micro Shifts</span>
+        <p class="text-[10px] text-neutral-500 mt-1">Small daily adjustments to support the experiment</p>
+        <ul id="micro-shifts" class="mt-3 space-y-2"></ul>
+      </section>
+
+      <div class="flex flex-wrap gap-3 pt-2">
+        <a href="/checkin" class="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">New check-in</a>
+        <a href="/history" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">View history</a>
+      </div>
     </div>
   </main>
 
@@ -54,27 +141,120 @@
   <script>
     (function() {
     const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
+    const isDemo = new URLSearchParams(location.search).has('demo');
 
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (!session) window.location.href = '/login';
-    });
+    if (!isDemo) {
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session) window.location.href = '/login';
+      });
+    }
     document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
 
-    sb.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      sb.from('entries').select('*').eq('user_id', user.id).order('date', { ascending: true }).then(({ data }) => {
-        if (!data || data.length < 7) return;
-        document.getElementById('locked').classList.add('hidden');
-        document.getElementById('report').classList.remove('hidden');
-        const avgSleep = (data.reduce((s, e) => s + (e.sleep_hours || 0), 0) / data.length).toFixed(1);
-        const avgEnergy = (data.reduce((s, e) => s + (e.energy || 0), 0) / data.length).toFixed(1);
-        const totalBlocks = data.reduce((s, e) => s + (e.deep_work_blocks || 0), 0);
-        document.getElementById('overview').innerHTML = '<p>Avg sleep: ' + avgSleep + 'h</p><p>Avg energy: ' + avgEnergy + '</p><p>Total deep work blocks: ' + totalBlocks + '</p>';
-        document.getElementById('patterns').innerHTML = '<li>Pattern analysis will appear after 7 entries with GPT weekly summary.</li>';
-        document.getElementById('derailers').innerHTML = '<li>—</li>';
-        document.getElementById('experiments').innerHTML = '<li>—</li>';
+    function showState(id) {
+      ['locked', 'loading', 'error-state', 'report'].forEach(s => {
+        document.getElementById(s).classList.toggle('hidden', s !== id);
       });
-    });
+    }
+
+    function renderList(elId, items, colorClass) {
+      const ul = document.getElementById(elId);
+      ul.innerHTML = '';
+      if (!items || !items.length) {
+        ul.innerHTML = '<li class="text-sm text-neutral-500">—</li>';
+        return;
+      }
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'text-sm leading-relaxed whitespace-pre-line ' + (colorClass || 'text-neutral-300');
+        li.textContent = typeof item === 'string' ? item : JSON.stringify(item);
+        ul.appendChild(li);
+      });
+    }
+
+    function renderReport(data) {
+      const m = data.metrics || {};
+      document.getElementById('m-sleep').textContent = (m.avg_sleep || '—') + 'h';
+      document.getElementById('m-quality').textContent = (m.avg_sleep_quality || '—') + '/5';
+      document.getElementById('m-energy').textContent = (m.avg_energy || '—') + '/5';
+      document.getElementById('m-blocks').textContent = m.total_deep_work || '0';
+
+      document.getElementById('narrative').textContent = data.week_narrative || '—';
+
+      renderList('patterns', data.recurring_patterns, 'text-neutral-200');
+      renderList('derailers', data.top_derailers, 'text-red-200/80');
+      renderList('bright-spots', data.bright_spots, 'text-emerald-200/80');
+      renderList('micro-shifts', data.micro_shifts, 'text-neutral-300');
+
+      const exp = data.weekly_experiment || {};
+      if (typeof exp === 'string') {
+        document.getElementById('exp-focus').textContent = exp;
+        document.getElementById('exp-protocol').textContent = '—';
+        document.getElementById('exp-mechanism').textContent = '—';
+        document.getElementById('exp-metric').textContent = '—';
+      } else {
+        document.getElementById('exp-focus').textContent = exp.focus || '—';
+        document.getElementById('exp-protocol').textContent = exp.protocol || '—';
+        document.getElementById('exp-mechanism').textContent = exp.mechanism || '—';
+        document.getElementById('exp-metric').textContent = exp.success_metric || '—';
+      }
+
+      showState('report');
+    }
+
+    async function fetchReport(userId) {
+      showState('loading');
+      try {
+        const payload = isDemo ? { demo: true } : { user_id: userId };
+        const r = await fetch('/api/weekly-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+
+        if (data.locked) {
+          const dots = document.getElementById('progress-dots');
+          dots.innerHTML = '';
+          for (let i = 0; i < 7; i++) {
+            const dot = document.createElement('div');
+            dot.className = i < data.entries_count
+              ? 'w-2.5 h-2.5 rounded-full bg-white/80'
+              : 'w-2.5 h-2.5 rounded-full bg-white/10 border border-white/20';
+            dots.appendChild(dot);
+          }
+          document.getElementById('progress-text').textContent =
+            data.entries_count + ' of 7 check-ins completed';
+          showState('locked');
+          return;
+        }
+
+        if (data.error && !data.week_narrative) {
+          document.getElementById('error-msg').textContent = data.error;
+          showState('error-state');
+          return;
+        }
+
+        renderReport(data);
+      } catch (err) {
+        document.getElementById('error-msg').textContent = 'Failed to load report. Check your connection.';
+        showState('error-state');
+      }
+    }
+
+    let currentUserId = null;
+    document.getElementById('retry-btn').onclick = () => {
+      if (currentUserId) fetchReport(currentUserId);
+    };
+
+    if (isDemo) {
+      fetchReport('demo');
+    } else {
+      sb.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        currentUserId = user.id;
+        fetchReport(user.id);
+      });
+    }
     })();
   </script>
 </body>

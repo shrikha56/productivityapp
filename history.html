@@ -24,7 +24,22 @@
   </nav>
 
   <main class="relative z-10 max-w-2xl mx-auto px-6 pb-24">
-    <h1 class="text-2xl font-medium text-white tracking-tight mb-8">History</h1>
+    <div class="flex items-baseline justify-between mb-8">
+      <h1 class="text-2xl font-medium text-white tracking-tight">History</h1>
+      <div id="streak-badge" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-lg glass-nested">
+        <div class="flex gap-1" id="streak-dots"></div>
+        <span id="streak-text" class="text-[10px] text-neutral-400 uppercase tracking-wider"></span>
+      </div>
+    </div>
+    <div id="report-banner" class="hidden mb-6 glass-card rounded-2xl p-5 border border-yellow-500/15">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-white">Weekly Report Ready</p>
+          <p class="text-xs text-neutral-400 mt-0.5">Your 7-day pattern analysis is available.</p>
+        </div>
+        <a href="/report/weekly" class="px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">View report →</a>
+      </div>
+    </div>
     <div id="list" class="space-y-3">
       <div id="empty" class="glass-card rounded-2xl py-12 text-center text-sm text-neutral-500">No entries yet.</div>
     </div>
@@ -50,6 +65,26 @@
         const empty = document.getElementById('empty');
         if (!data || data.length === 0) return;
         empty.classList.add('hidden');
+
+        // Streak / progress
+        const count = data.length;
+        const badge = document.getElementById('streak-badge');
+        const dots = document.getElementById('streak-dots');
+        badge.classList.remove('hidden');
+        for (let i = 0; i < 7; i++) {
+          const d = document.createElement('div');
+          d.className = i < count
+            ? 'w-1.5 h-1.5 rounded-full bg-white/80'
+            : 'w-1.5 h-1.5 rounded-full bg-white/15';
+          dots.appendChild(d);
+        }
+        document.getElementById('streak-text').textContent =
+          count >= 7 ? count + ' entries' : count + '/7';
+
+        if (count >= 7) {
+          document.getElementById('report-banner').classList.remove('hidden');
+        }
+
         data.forEach(e => {
           const a = document.createElement('a');
           a.href = '/entry?id=' + e.id;
