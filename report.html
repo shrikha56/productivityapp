@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Report — Signal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/signal.css?v=2">
+</head>
+<body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
+  <div class="noise-bg"></div>
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
+
+  <nav class="relative z-10 w-full max-w-2xl mx-auto px-6 py-6 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black rounded-full"></div></div>
+      <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
+    </a>
+    <div class="flex items-center gap-4">
+      <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
+      <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
+      <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
+    </div>
+  </nav>
+
+  <main class="relative z-10 max-w-2xl mx-auto px-6 pb-24">
+    <h1 class="text-2xl font-medium text-white tracking-tight mb-8">Weekly Report</h1>
+    <div id="locked" class="glass-card rounded-2xl p-8 text-center">
+      <p class="text-sm text-neutral-400 mb-4">Complete 7 daily check-ins to unlock your weekly pattern report.</p>
+      <a href="/checkin" class="inline-block px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Go to check-in</a>
+    </div>
+    <div id="report" class="hidden space-y-8">
+      <section class="glass-card rounded-2xl p-6">
+        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">Week Overview</h2>
+        <div id="overview" class="text-sm text-neutral-300 space-y-2"></div>
+      </section>
+      <section class="glass-card rounded-2xl p-6">
+        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">Recurring Patterns</h2>
+        <ul id="patterns" class="text-sm text-neutral-300 space-y-2 list-disc list-inside"></ul>
+      </section>
+      <section class="glass-card rounded-2xl p-6">
+        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-4">Top Derailers</h2>
+        <ul id="derailers" class="text-sm text-neutral-300 space-y-2 list-disc list-inside"></ul>
+      </section>
+      <section class="glass-card rounded-2xl p-6 border border-yellow-500/20">
+        <h2 class="text-xs font-medium text-yellow-400/80 uppercase tracking-widest mb-4">Experiments For Next Week</h2>
+        <ul id="experiments" class="text-sm text-yellow-200/90 space-y-2 list-disc list-inside"></ul>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (function() {
+    const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
+
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (!session) window.location.href = '/login';
+    });
+    document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+
+    sb.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      sb.from('entries').select('*').eq('user_id', user.id).order('date', { ascending: true }).then(({ data }) => {
+        if (!data || data.length < 7) return;
+        document.getElementById('locked').classList.add('hidden');
+        document.getElementById('report').classList.remove('hidden');
+        const avgSleep = (data.reduce((s, e) => s + (e.sleep_hours || 0), 0) / data.length).toFixed(1);
+        const avgEnergy = (data.reduce((s, e) => s + (e.energy || 0), 0) / data.length).toFixed(1);
+        const totalBlocks = data.reduce((s, e) => s + (e.deep_work_blocks || 0), 0);
+        document.getElementById('overview').innerHTML = '<p>Avg sleep: ' + avgSleep + 'h</p><p>Avg energy: ' + avgEnergy + '</p><p>Total deep work blocks: ' + totalBlocks + '</p>';
+        document.getElementById('patterns').innerHTML = '<li>Pattern analysis will appear after 7 entries with GPT weekly summary.</li>';
+        document.getElementById('derailers').innerHTML = '<li>—</li>';
+        document.getElementById('experiments').innerHTML = '<li>—</li>';
+      });
+    });
+    })();
+  </script>
+</body>
+</html>

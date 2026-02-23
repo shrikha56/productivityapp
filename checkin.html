@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Check-In — Signal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/signal.css?v=2">
+</head>
+<body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
+  <div class="noise-bg"></div>
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
+
+  <nav class="relative z-10 w-full max-w-2xl mx-auto px-6 py-6 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black rounded-full"></div></div>
+      <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
+    </a>
+    <div class="flex items-center gap-4">
+      <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
+      <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
+    </div>
+  </nav>
+
+  <main class="relative z-10 max-w-2xl mx-auto px-6 pb-24">
+    <header class="mb-8">
+      <h1 class="text-sm font-medium text-neutral-500 uppercase tracking-widest">Today</h1>
+      <p id="day-label" class="text-xl font-medium text-white mt-1">Day 1 of 7</p>
+    </header>
+
+    <form id="checkin-form" class="space-y-8">
+      <!-- 3 Daily Anchors -->
+      <section class="glass-card rounded-2xl p-6">
+        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-6">3 Daily Anchors</h2>
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-white mb-2">1. Sleep</label>
+            <div class="flex gap-4 items-center">
+              <div class="flex-1">
+                <span class="text-xs text-neutral-500">Hours</span>
+                <input type="number" name="sleep_hours" min="0" max="24" step="0.5" value="7" required
+                  class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-white/30 outline-none">
+              </div>
+              <div class="flex-1">
+                <span class="text-xs text-neutral-500">Quality (1–5)</span>
+                <input type="range" name="sleep_quality" min="1" max="5" value="3" class="w-full mt-1 accent-white/80">
+                <span id="sleep-quality-val" class="text-xs text-neutral-400">3</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-white mb-2">2. Energy</label>
+            <input type="range" name="energy" min="1" max="5" value="3" class="w-full accent-white/80">
+            <span id="energy-val" class="text-xs text-neutral-400">3</span>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-white mb-2">3. Deep Work</label>
+            <p class="text-[10px] text-neutral-500 mb-2">45–90 minutes of focused work on your most important task.</p>
+            <div class="flex gap-2">
+              <label class="flex-1 cursor-pointer">
+                <input type="radio" name="deep_work_blocks" value="0" class="sr-only peer">
+                <span class="block py-2.5 rounded-lg border border-white/10 bg-white/5 text-center text-sm text-neutral-400 peer-checked:border-white/30 peer-checked:bg-white/10 peer-checked:text-white">0 blocks</span>
+              </label>
+              <label class="flex-1 cursor-pointer">
+                <input type="radio" name="deep_work_blocks" value="1" class="sr-only peer" checked>
+                <span class="block py-2.5 rounded-lg border border-white/10 bg-white/5 text-center text-sm text-neutral-400 peer-checked:border-white/30 peer-checked:bg-white/10 peer-checked:text-white">1 block</span>
+              </label>
+              <label class="flex-1 cursor-pointer">
+                <input type="radio" name="deep_work_blocks" value="2" class="sr-only peer">
+                <span class="block py-2.5 rounded-lg border border-white/10 bg-white/5 text-center text-sm text-neutral-400 peer-checked:border-white/30 peer-checked:bg-white/10 peer-checked:text-white">2+ blocks</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reflection - Voice Assistant UI -->
+      <section class="relative">
+        <div class="voice-glow absolute inset-x-0 -bottom-20 h-32 pointer-events-none"></div>
+        <div class="voice-card relative rounded-2xl p-6 sm:p-8">
+          <div class="mb-4">
+            <h2 class="text-xs font-medium text-neutral-400 uppercase tracking-widest">Reflect on your day</h2>
+          </div>
+          <div class="flex gap-2 mb-4">
+            <button type="button" id="tab-voice" class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors">Voice</button>
+            <button type="button" id="tab-type" class="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium">Type</button>
+          </div>
+
+          <!-- Type mode -->
+          <div id="type-area" class="space-y-4">
+            <div class="min-h-[80px]">
+              <textarea name="transcript" id="transcript-input" rows="3" placeholder="Start typing… How did you sleep? What are you feeling? What did you attempt?"
+                class="w-full bg-transparent border-0 px-0 py-2 text-sm text-white placeholder-neutral-500 focus:ring-0 outline-none resize-none"></textarea>
+              <p id="live-preview" class="text-sm text-neutral-300 min-h-[1.25rem] mt-1"></p>
+            </div>
+            <div id="clarify-area" class="mt-4 pt-4 border-t border-white/10 space-y-3 min-h-[4rem]">
+              <p id="clarify-hint" class="text-xs text-neutral-500">Type 10+ characters for guiding questions</p>
+              <p id="clarify-label" class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium hidden">Questions to deepen your reflection</p>
+              <div id="clarify-questions" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <!-- Voice mode -->
+          <div id="voice-area" class="hidden">
+            <div class="min-h-[60px] mb-4">
+              <p id="voice-preview" class="text-sm text-neutral-300 min-h-[1.25rem]"></p>
+            </div>
+            <div id="waveform" class="w-full mb-6">
+              <canvas id="waveCanvas" class="wave-canvas"></canvas>
+            </div>
+            <div class="flex flex-col items-center gap-3">
+              <button type="button" id="record-btn" class="mic-btn">
+                <iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>
+              </button>
+              <span id="record-label" class="text-xs text-neutral-500">Tap to record</span>
+            </div>
+            <div id="transcript-preview" class="mt-4 p-3 rounded-lg glass-nested text-sm text-neutral-300 hidden"></div>
+          </div>
+        </div>
+      </section>
+
+      <button type="submit" id="generate-btn" class="w-full bg-white hover:bg-neutral-200 text-black text-sm font-medium py-3.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+        Generate Today's Signal
+      </button>
+    </form>
+  </main>
+
+  <!-- Overwrite confirmation modal -->
+  <div id="overwrite-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="voice-card max-w-sm w-full rounded-2xl p-6 shadow-xl">
+      <h3 class="text-sm font-medium text-white mb-2">Entry already exists</h3>
+      <p class="text-sm text-neutral-400 mb-6">You already have an entry for today. Overwrite it with your new submission?</p>
+      <div class="flex gap-3">
+        <button type="button" id="overwrite-cancel" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">Cancel</button>
+        <button type="button" id="overwrite-confirm" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors">Overwrite</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Missing topic modal -->
+  <div id="missing-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="voice-card max-w-sm w-full rounded-2xl p-6 shadow-xl">
+      <h3 id="missing-title" class="text-sm font-medium text-white mb-2"></h3>
+      <p id="missing-body" class="text-sm text-neutral-400 mb-6"></p>
+      <div id="missing-questions" class="space-y-2 mb-6"></div>
+      <div class="flex gap-3">
+        <button type="button" id="missing-back" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">Go back</button>
+        <button type="button" id="missing-proceed" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors hidden">Yes, generate</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (function() {
+    const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
+
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (!session) window.location.href = '/login';
+    });
+
+    document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+
+    document.querySelector('[name="sleep_quality"]').oninput = (e) => { document.getElementById('sleep-quality-val').textContent = e.target.value; };
+    document.querySelector('[name="energy"]').oninput = (e) => { document.getElementById('energy-val').textContent = e.target.value; };
+
+    document.getElementById('tab-type').onclick = () => {
+      document.getElementById('type-area').classList.remove('hidden');
+      document.getElementById('voice-area').classList.add('hidden');
+      document.getElementById('tab-type').className = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
+      document.getElementById('tab-voice').className = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
+      if (window.waveAnim) window.waveAnim.pause();
+    };
+    document.getElementById('tab-voice').onclick = () => {
+      document.getElementById('voice-area').classList.remove('hidden');
+      document.getElementById('type-area').classList.add('hidden');
+      document.getElementById('tab-voice').className = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
+      document.getElementById('tab-type').className = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
+      if (window.waveAnim) window.waveAnim.resume();
+    };
+
+    function getFallbackQuestions(text) {
+      const t = text.toLowerCase();
+      const questions = [];
+      if (/\b(blue|down|bothered|sad|low|dont feel okay|don't feel)\b/.test(t)) questions.push("How did that affect your energy for work today?");
+      if (/\b(unproductive|unfocused|wasted|sat the whole day)\b/.test(t)) questions.push('What got in the way of feeling productive today?');
+      if (/\b(tired|exhausted|drained|low energy)\b/.test(t)) questions.push('How did you sleep last night?');
+      if (/\b(interrupted|noise|loud|woke up)\b/.test(t)) questions.push('What might have affected your sleep quality?');
+      if (/\b(fight|argument|bf|boyfriend|girlfriend|conflict)\b/.test(t)) questions.push('How did that affect your energy today?');
+      if (/\b(unsure|confused|bored|unmotivated|not sure)\b/.test(t)) questions.push('What did you attempt today that mattered to you?');
+      if (/\b(stress|anxious|overwhelmed|stuck)\b/.test(t)) questions.push('What got in the way of your focus?');
+      if (/\b(sleep|slept|rest|woke|wake)\b/.test(t) && !questions.some(q => q.includes('sleep'))) questions.push('What might have affected your sleep quality?');
+      if (questions.length === 0) questions.push('What got in the way of your best work today?');
+      return questions.slice(0, 2);
+    }
+
+    function renderQuestions(questions, el, label, hint) {
+      el.innerHTML = '';
+      if (!questions.length) return;
+      label.classList.remove('hidden');
+      hint.classList.add('hidden');
+      questions.forEach(q => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'text-left text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors';
+        btn.textContent = q;
+        btn.onclick = () => {
+          const ta = document.getElementById('transcript-input');
+          ta.value = (ta.value.trim() + ' ' + q).trim();
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        el.appendChild(btn);
+      });
+    }
+
+    let clarifyDebounce;
+    let clarifyAbort = null;
+    const clarifyHint = document.getElementById('clarify-hint');
+    document.getElementById('transcript-input').addEventListener('input', (e) => {
+      const text = e.target.value.trim();
+      document.getElementById('live-preview').textContent = text ? text + '…' : '';
+      const el = document.getElementById('clarify-questions');
+      const label = document.getElementById('clarify-label');
+      if (clarifyAbort) clarifyAbort.abort();
+      el.innerHTML = '';
+      label.classList.add('hidden');
+      if (text.length < 15) {
+        clarifyHint.textContent = 'Type 15+ characters for AI questions';
+        clarifyHint.classList.remove('hidden');
+        return;
+      }
+      const fallback = getFallbackQuestions(text);
+      renderQuestions(fallback, el, label, clarifyHint);
+      clearTimeout(clarifyDebounce);
+      clarifyDebounce = setTimeout(async () => {
+        const snapshot = text;
+        clarifyAbort = new AbortController();
+        el.innerHTML = '';
+        label.classList.add('hidden');
+        clarifyHint.textContent = 'Getting AI questions…';
+        clarifyHint.classList.remove('hidden');
+        try {
+          const r = await fetch('/api/clarify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+            signal: clarifyAbort.signal
+          });
+          const data = await r.json();
+          const { questions, source, error } = data;
+          console.log('[clarify]', source || 'unknown', questions?.length || 0, error ? `(${error})` : '');
+          const current = document.getElementById('transcript-input').value.trim();
+          if (questions && questions.length && snapshot === current) {
+            renderQuestions(questions, el, label, clarifyHint);
+          } else if (snapshot === current) {
+            clarifyHint.textContent = 'Type 15+ characters for AI questions';
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError' && snapshot === document.getElementById('transcript-input').value.trim()) {
+            renderQuestions(getFallbackQuestions(snapshot), el, label, clarifyHint);
+          }
+        }
+        clarifyAbort = null;
+      }, 280);
+    });
+
+
+    let pendingOverwritePayload = null;
+    const modal = document.getElementById('overwrite-modal');
+    document.getElementById('overwrite-cancel').onclick = () => {
+      modal.classList.add('hidden');
+      pendingOverwritePayload = null;
+    };
+    document.getElementById('overwrite-confirm').onclick = async () => {
+      if (!pendingOverwritePayload) return;
+      const btn = document.getElementById('overwrite-confirm');
+      btn.disabled = true;
+      btn.textContent = 'Overwriting…';
+      pendingOverwritePayload.overwrite = true;
+      modal.classList.add('hidden');
+      try {
+        const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pendingOverwritePayload) });
+        const res = await r.json();
+        if (res.entry_id) window.location.href = '/entry?id=' + res.entry_id;
+        else alert(res.error || 'Something went wrong');
+      } catch (err) {
+        alert('Something went wrong');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Overwrite';
+      pendingOverwritePayload = null;
+    };
+
+    (function initWaves() {
+      const canvas = document.getElementById('waveCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let rafId, paused = true;
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, rect.width * dpr);
+        canvas.height = Math.max(1, rect.height * dpr);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+      }
+
+      const waves = [
+        { color: [255, 255, 255], speed: 1.8, freq: 1.4, phase: 0, amp: 1.0, lw: 2.2, op: 1.0 },
+        { color: [120, 180, 255], speed: 1.2, freq: 1.1, phase: 0.8, amp: 0.75, lw: 1.6, op: 0.85 },
+        { color: [90, 150, 255], speed: 2.2, freq: 1.8, phase: 1.6, amp: 0.55, lw: 1.4, op: 0.7 },
+        { color: [140, 190, 255], speed: 0.9, freq: 0.9, phase: 2.5, amp: 0.45, lw: 1.2, op: 0.55 },
+        { color: [70, 130, 255], speed: 1.5, freq: 2.2, phase: 3.2, amp: 0.35, lw: 1.0, op: 0.45 },
+      ];
+
+      function drawWave(wave, elapsed) {
+        const W = canvas.getBoundingClientRect().width;
+        const H = canvas.getBoundingClientRect().height;
+        if (W <= 0 || H <= 0) return;
+        const cx = W / 2, cy = H / 2;
+        const maxAmp = H * 0.32 * wave.amp;
+        const points = [];
+        const steps = 200;
+        for (let i = 0; i <= steps; i++) {
+          const x = (i / steps) * W;
+          const nx = (x - cx) / cx;
+          const envelope = Math.pow(1 - Math.abs(nx), 1.2) * Math.sin(Math.PI * (i / steps));
+          const y = cy
+            + Math.sin(nx * Math.PI * wave.freq + elapsed * wave.speed + wave.phase) * maxAmp * envelope
+            + Math.sin(nx * Math.PI * wave.freq * 1.7 + elapsed * wave.speed * 1.3 + wave.phase + 1) * maxAmp * 0.3 * envelope;
+          points.push([x, y]);
+        }
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length - 1; i++) {
+          const mx = (points[i][0] + points[i+1][0]) / 2;
+          const my = (points[i][1] + points[i+1][1]) / 2;
+          ctx.quadraticCurveTo(points[i][0], points[i][1], mx, my);
+        }
+        ctx.lineTo(points[points.length-1][0], points[points.length-1][1]);
+        const [r, g, b] = wave.color;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.op})`;
+        ctx.lineWidth = wave.lw;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      let lastTime = 0, elapsed = 0;
+      function animate(now) {
+        if (paused) return;
+        const dt = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+        elapsed += dt;
+        const W = canvas.getBoundingClientRect().width;
+        const H = canvas.getBoundingClientRect().height;
+        ctx.clearRect(0, 0, W, H);
+        waves.forEach(w => drawWave(w, elapsed));
+        rafId = requestAnimationFrame(animate);
+      }
+
+      window.waveAnim = {
+        resume: function() {
+          if (paused) {
+            paused = false;
+            resize();
+            lastTime = performance.now();
+            rafId = requestAnimationFrame(animate);
+          }
+        },
+        pause: function() {
+          paused = true;
+          if (rafId) cancelAnimationFrame(rafId);
+        }
+      };
+      window.addEventListener('resize', resize);
+    })();
+
+    document.getElementById('record-btn').onclick = async () => {
+      const btn = document.getElementById('record-btn');
+      const label = document.getElementById('record-label');
+      if (btn.dataset.recording === 'true') {
+        btn.dataset.recording = '';
+        btn.classList.remove('recording');
+        btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+        label.textContent = 'Tap to record';
+        return;
+      }
+      btn.dataset.recording = 'true';
+      btn.classList.add('recording');
+      btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+      label.textContent = 'Recording…';
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const formData = new FormData();
+          formData.append('audio', blob);
+          const r = await fetch('/api/transcribe', { method: 'POST', body: formData });
+          const data = await r.json();
+          if (data.transcript) {
+            document.getElementById('transcript-input').value = data.transcript;
+            document.getElementById('transcript-preview').textContent = data.transcript;
+            document.getElementById('transcript-preview').classList.remove('hidden');
+          }
+        };
+        recorder.start();
+        setTimeout(() => { recorder.stop(); btn.dataset.recording = ''; btn.classList.remove('recording'); btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>'; label.textContent = 'Tap to record'; }, 10000);
+      } catch (err) {
+        alert('Microphone access denied');
+        btn.dataset.recording = '';
+        btn.classList.remove('recording');
+        btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+        label.textContent = 'Tap to record';
+      }
+    };
+
+    function clientFallbackCheck(text) {
+      const t = (text || '').toLowerCase();
+      const missing = [];
+      if (!/\b(sleep|slept|woke|wake|rest|nap|bed|hours?|asleep)\b/.test(t)) missing.push('How did you sleep?');
+      const hasFeelingPhrase = /(i feel|i'm feeling|my energy|my mood|i feel like today)\b/.test(t);
+      const hasFeelingWord = /\b(stressed|anxious|happy|sad|motivated|unmotivated|drained|bothered|down|low)\b/.test(t);
+      if (!hasFeelingPhrase && !hasFeelingWord) missing.push('What are you feeling?');
+      if (!/\b(work|worked|tried|did|task|meeting|study|exercise|nothing|chilled|project)\b/.test(t)) missing.push('What did you attempt?');
+      return missing;
+    }
+    async function getMissingTopics(text) {
+      if (!text || text.trim().length < 5) return ['How did you sleep?', 'What are you feeling?', 'What did you attempt?'];
+      try {
+        const r = await fetch('/api/check-topics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) });
+        const data = await r.json();
+        if (r.ok && Array.isArray(data.missing)) return data.missing;
+        return clientFallbackCheck(text);
+      } catch (err) {
+        return clientFallbackCheck(text);
+      }
+    }
+
+    const missingModal = document.getElementById('missing-modal');
+    const missingTitle = document.getElementById('missing-title');
+    const missingBody = document.getElementById('missing-body');
+    const missingQuestions = document.getElementById('missing-questions');
+    const missingBack = document.getElementById('missing-back');
+    const missingProceed = document.getElementById('missing-proceed');
+    let pendingSubmit = null;
+
+    missingBack.onclick = () => {
+      missingModal.classList.add('hidden');
+      const ta = document.getElementById('transcript-input');
+      ta.focus();
+      pendingSubmit = null;
+    };
+    missingProceed.onclick = () => {
+      missingModal.classList.add('hidden');
+      if (pendingSubmit) submitPayload(pendingSubmit);
+      pendingSubmit = null;
+    };
+
+    const generateBtn = document.getElementById('generate-btn');
+
+    async function submitPayload(payload) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = 'Generating…';
+      try {
+        let r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        let res = await r.json();
+        generateBtn.disabled = false;
+        generateBtn.textContent = "Generate Today's Signal";
+        if (res.entry_id && r.ok) {
+          window.location.href = '/entry?id=' + res.entry_id;
+          return;
+        }
+        if (res.error === 'Entry for this date already exists') {
+          pendingOverwritePayload = payload;
+          modal.classList.remove('hidden');
+          return;
+        }
+        alert(res.error || 'Something went wrong');
+      } catch (err) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = "Generate Today's Signal";
+        alert('Something went wrong');
+      }
+    }
+
+    document.getElementById('checkin-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (generateBtn.disabled) return;
+      const form = e.target;
+      const fd = new FormData(form);
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { window.location.href = '/login'; return; }
+      const payload = {
+        user_id: user.id,
+        date: new Date().toISOString().slice(0, 10),
+        sleep_hours: parseFloat(fd.get('sleep_hours')),
+        sleep_quality: parseInt(fd.get('sleep_quality')),
+        energy: parseInt(fd.get('energy')),
+        deep_work_blocks: parseInt(fd.get('deep_work_blocks')),
+        transcript: fd.get('transcript') || ''
+      };
+      generateBtn.disabled = true;
+      generateBtn.textContent = 'Checking…';
+      const missing = await getMissingTopics(payload.transcript);
+      generateBtn.disabled = false;
+      generateBtn.textContent = "Generate Today's Signal";
+      if (missing.length > 0) {
+        missingQuestions.innerHTML = '';
+        missing.forEach(q => {
+          const p = document.createElement('p');
+          p.className = 'text-sm text-neutral-300';
+          p.textContent = '→ ' + q;
+          missingQuestions.appendChild(p);
+        });
+        missingTitle.textContent = 'Your reflection may be incomplete';
+        missingBody.textContent = 'We didn\u2019t find these in your reflection:';
+        missingProceed.classList.remove('hidden');
+        missingProceed.textContent = 'Yes, I answered everything';
+        pendingSubmit = payload;
+        missingModal.classList.remove('hidden');
+        return;
+      }
+      submitPayload(payload);
+    };
+    })();
+  </script>
+</body>
+</html>

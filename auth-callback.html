@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing you in — Signal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <style>body{font-family:'Inter',sans-serif;background:#050505;color:#a3a3a3;min-height:100vh;display:flex;align-items:center;justify-content:center;}</style>
+</head>
+<body>
+  <div class="text-center px-6">
+    <p id="status" class="text-sm text-neutral-400">Signing you in…</p>
+    <p id="err" class="text-sm text-red-400 mt-2 hidden"></p>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (function() {
+      const sb = window.supabase.createClient(
+        'https://xmxzunophhboyfidicof.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY'
+      );
+
+    function go() { window.location.replace('/checkin'); }
+    function fail(m) {
+      document.getElementById('status').textContent = m || 'No session. Try logging in again.';
+      setTimeout(() => window.location.replace('/login'), 2500);
+    }
+
+    async function run() {
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      const code = params.get('code');
+      const tokenHash = params.get('token_hash');
+
+      try {
+        if (code) {
+          const { data, error } = await sb.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (data?.session) { go(); return; }
+        }
+        if (tokenHash) {
+          const type = params.get('type') || 'email';
+          const { data, error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+          if (error) throw error;
+          if (data?.session) { go(); return; }
+        }
+        if (hash) {
+          const { data: { session }, error } = await sb.auth.getSession();
+          if (!error && session) { go(); return; }
+        }
+
+        const { data: { session }, error } = await sb.auth.getSession();
+        if (error) throw error;
+        if (session) { go(); return; }
+        fail();
+      } catch (err) {
+        document.getElementById('status').classList.add('hidden');
+        document.getElementById('err').textContent = err.message || 'Auth error';
+        document.getElementById('err').classList.remove('hidden');
+        setTimeout(() => window.location.replace('/login'), 3000);
+      }
+    }
+    run();
+    })();
+  </script>
+</body>
+</html>
