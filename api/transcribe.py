@@ -7,7 +7,7 @@ import os
 import tempfile
 from http.server import BaseHTTPRequestHandler
 
-OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_KEY = (os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_KEY") or "").strip()
 
 
 class handler(BaseHTTPRequestHandler):
@@ -38,7 +38,7 @@ class handler(BaseHTTPRequestHandler):
             return
 
         if not OPENAI_KEY:
-            self._send(200, {"transcript": "[Add OPENAI_API_KEY for voice transcription]"})
+            self._send(503, {"error": "OPENAI_API_KEY not configured. Add it in Vercel: Settings → Environment Variables.", "transcript": ""})
             return
 
         try:

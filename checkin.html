@@ -160,6 +160,15 @@
     sb.auth.getSession().then(({ data: { session } }) => {
       if (!session) window.location.href = '/login';
     });
+    fetch('/api/test-gpt').then(r => r.json()).then(d => {
+      if (!d.ok) {
+        const b = document.createElement('div');
+        b.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 text-sm';
+        b.textContent = 'Analysis unavailable: ' + (d.error || 'Check OPENAI_API_KEY in .env');
+        document.body.appendChild(b);
+        setTimeout(() => b.remove(), 8000);
+      }
+    });
 
     document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
 
@@ -407,6 +416,14 @@
           formData.append('audio', blob);
           const r = await fetch('/api/transcribe', { method: 'POST', body: formData });
           const data = await r.json();
+          if (data.error) {
+            btn.dataset.recording = '';
+            btn.classList.remove('recording');
+            btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+            label.textContent = 'Tap to record';
+            alert(data.error);
+            return;
+          }
           if (data.transcript) {
             document.getElementById('transcript-input').value = data.transcript;
             document.getElementById('transcript-preview').textContent = data.transcript;

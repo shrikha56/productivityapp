@@ -4,6 +4,7 @@ Requires: OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
 import json
 import os
+import re
 from http.server import BaseHTTPRequestHandler
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
@@ -55,18 +56,20 @@ If no, return: NONE"""
         return None
 
 
-def analyze_with_gpt(transcript: str, sleep_hours: float, sleep_quality: int, energy: int, deep_work: int) -> dict:
+def analyze_with_gpt(transcript: str, sleep_hours: float, sleep_quality: int, energy: int, deep_work: int, api_key: str = None) -> dict:
     """Call GPT to generate structured output. Returns dict with reflection_summary, likely_drivers, predicted_impact, experiment_for_tomorrow."""
-    if not OPENAI_KEY:
+    key = (api_key or OPENAI_KEY or "").strip()
+    if not key:
         return {
             "reflection_summary": transcript[:200] + ("..." if len(transcript) > 200 else ""),
-            "likely_drivers": ["Sleep debt", "Cognitive load"],
-            "predicted_impact": "Reduced focus for 24h",
-            "experiment_for_tomorrow": "25 min deep work before any meetings",
+            "likely_drivers": ["Analysis pending"],
+            "predicted_impact": "—",
+            "experiment_for_tomorrow": "—",
+            "_error": "OPENAI_API_KEY not set in .env",
         }
     try:
         import openai
-        client = openai.OpenAI(api_key=OPENAI_KEY)
+        client = openai.OpenAI(api_key=key)
         prompt = f"""You are "Signal", a cognitive performance analysis engine. Your job is to generate a daily reflection grounded in behavioral science, cognitive psychology, and neuroscience.
 
 INPUTS:
@@ -97,33 +100,97 @@ Return valid JSON only. No markdown. Structure:
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            max_tokens=2000,
+            max_tokens=2500,
         )
-        text = r.choices[0].message.content.strip()
+        text = (r.choices[0].message.content or "").strip()
+        if not text:
+            raise ValueError("Empty response from GPT")
         if text.startswith("```"):
             text = text.split("```")[1]
-            if text.startswith("json"):
+            if text.lower().startswith("json"):
                 text = text[4:]
             text = text.strip()
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            text = text[start:end]
+        # Fix common JSON issues: trailing commas
+        text = re.sub(r",\s*}", "}", text)
+        text = re.sub(r",\s*]", "]", text)
         data = json.loads(text)
+        # Ensure required keys exist
+        data.setdefault("reflection_summary", "")
+        data.setdefault("likely_drivers", [])
+        data.setdefault("predicted_impact", "")
+        data.setdefault("experiment_for_tomorrow", "")
+
+        # Normalize fields that GPT may return as dicts instead of strings
+        for str_field in ("reflection_summary", "predicted_impact", "experiment_for_tomorrow", "core_bottleneck"):
+            val = data.get(str_field)
+            if isinstance(val, dict):
+                data[str_field] = "\n".join(f"{k}: {v}" for k, v in val.items())
+
+        # Normalize likely_drivers: GPT may return list of dicts instead of strings
+        drivers = data.get("likely_drivers", [])
+        if isinstance(drivers, list):
+            normalized = []
+            for d in drivers:
+                if isinstance(d, dict):
+                    normalized.append(" — ".join(f"{k}: {v}" for k, v in d.items()))
+                else:
+                    normalized.append(str(d))
+            data["likely_drivers"] = normalized
+
         # Merge core_bottleneck into reflection_summary for display
         core = data.get("core_bottleneck", "")
         summary = data.get("reflection_summary", "")
         if core:
             data["reflection_summary"] = f"Core bottleneck: {core}\n\n{summary}"
+
         # Append micro_interventions to experiment
-        micro = data.get("micro_interventions", [])
+        micro = data.get("micro_interventions") or []
+        if isinstance(micro, list):
+            micro = [str(m) if not isinstance(m, str) else m for m in micro]
         exp = data.get("experiment_for_tomorrow", "")
         if micro:
             exp += "\n\nMicro-interventions:\n" + "\n".join(f"• {m}" for m in micro[:3])
             data["experiment_for_tomorrow"] = exp
         return data
     except Exception as e:
+        import sys
+        err_msg = f"{type(e).__name__}: {str(e)}"
+        print("[analyze] GPT failed:", err_msg, file=sys.stderr)
+        # Retry with minimal prompt (create fresh client in case first failed early)
+        try:
+            import openai as _openai
+            _client = _openai.OpenAI(api_key=key)
+            simple_prompt = f"""Based on: Sleep {sleep_hours}h, quality {sleep_quality}/5, energy {energy}/5, deep work {deep_work} blocks. Notes: {transcript[:500]}
+
+Return JSON only:
+{{"reflection_summary": "2-3 sentence summary of performance factors", "core_bottleneck": "one sentence", "likely_drivers": ["driver 1", "driver 2"], "predicted_impact": "1-2 sentences", "experiment_for_tomorrow": "one concrete experiment", "micro_interventions": []}}"""
+            r2 = _client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": simple_prompt}], temperature=0.2, max_tokens=800)
+            text = (r2.choices[0].message.content or "").strip()
+            start, end = text.find("{"), text.rfind("}") + 1
+            if start >= 0 and end > start:
+                text = text[start:end]
+            text = re.sub(r",\s*}", "}", re.sub(r",\s*]", "]", text))
+            data = json.loads(text)
+            data.setdefault("reflection_summary", "")
+            data.setdefault("likely_drivers", [])
+            data.setdefault("predicted_impact", "")
+            data.setdefault("experiment_for_tomorrow", "")
+            core = data.get("core_bottleneck", "")
+            if core:
+                data["reflection_summary"] = f"Core bottleneck: {core}\n\n{data.get('reflection_summary', '')}"
+            return data
+        except Exception as e2:
+            print("[analyze] Retry also failed:", str(e2), file=sys.stderr)
         return {
             "reflection_summary": transcript[:200] or "No reflection provided.",
             "likely_drivers": ["Analysis pending"],
             "predicted_impact": "—",
             "experiment_for_tomorrow": "—",
+            "_error": err_msg,
         }
 
 
@@ -160,6 +227,10 @@ class handler(BaseHTTPRequestHandler):
                 return
 
         result = analyze_with_gpt(transcript, sleep_hours, sleep_quality, energy, deep_work)
+
+        if result.get("likely_drivers") == ["Analysis pending"]:
+            self._send(503, {"error": "Analysis failed. Add OPENAI_API_KEY to Vercel Environment Variables (Settings → Environment Variables) and redeploy."})
+            return
 
         row = {
             "user_id": user_id,

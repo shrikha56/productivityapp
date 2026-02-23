@@ -10,7 +10,9 @@ import tempfile
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    import pathlib
+    env_path = pathlib.Path(__file__).resolve().parent / ".env"
+    load_dotenv(dotenv_path=env_path)
 except ImportError:
     pass
 
@@ -27,7 +29,7 @@ SUPABASE_KEY = (
     or os.environ.get("SUPABASE_ANON_KEY")
     or os.environ.get("EXPO_PUBLIC_SUPABASE_KEY", "")
 )
-OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_KEY = (os.environ.get("OPENAI_API_KEY") or "").strip()
 
 
 # --- Page routes ---
@@ -124,7 +126,12 @@ def analyze():
     energy = int(data.get("energy", 3))
     deep_work = int(data.get("deep_work_blocks", 0))
 
-    result = analyze_with_gpt(transcript, sleep_hours, sleep_quality, energy, deep_work)
+    result = analyze_with_gpt(transcript, sleep_hours, sleep_quality, energy, deep_work, api_key=OPENAI_KEY)
+
+    # If GPT failed (fallback), don't save — return error so user can retry
+    if result.get("likely_drivers") == ["Analysis pending"]:
+        err = result.get("_error", "Unknown error")
+        return jsonify({"error": f"Analysis failed: {err}"}), 503
 
     row = {
         "user_id": user_id,
@@ -312,7 +319,7 @@ def transcribe():
         return jsonify({"error": "No audio file in request"}), 400
 
     if not OPENAI_KEY:
-        return jsonify({"transcript": "[Add OPENAI_API_KEY for voice transcription]"})
+        return jsonify({"error": "OPENAI_API_KEY not configured. Add it to .env for local dev, or Vercel Environment Variables for production.", "transcript": ""}), 503
 
     try:
         import openai
@@ -342,4 +349,6 @@ def serve_static(path):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
     print(f"Signal running at http://127.0.0.1:{port}/")
+    if not OPENAI_KEY:
+        print("WARNING: OPENAI_API_KEY not set in .env — analysis and voice transcription will fail.")
     app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true")
