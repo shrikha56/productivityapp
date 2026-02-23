@@ -32,7 +32,7 @@
       <div class="space-y-4">
         <div id="card-summary" class="glass-panel rounded-2xl p-6">
           <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Reflection Summary</span>
-          <p id="summary" class="text-sm text-neutral-200 mt-2"></p>
+          <p id="summary" class="text-sm text-neutral-200 mt-2 whitespace-pre-line"></p>
         </div>
         <div id="card-drivers" class="glass-panel rounded-2xl p-6">
           <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Likely Drivers</span>
@@ -40,11 +40,11 @@
         </div>
         <div id="card-impact" class="glass-panel rounded-2xl p-6">
           <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Predicted Impact</span>
-          <p id="impact" class="text-sm text-neutral-200 mt-2"></p>
+          <p id="impact" class="text-sm text-neutral-200 mt-2 whitespace-pre-line"></p>
         </div>
         <div id="card-experiment" class="glass-panel rounded-2xl p-6 border-yellow-500/20">
           <span class="text-[10px] uppercase tracking-wider font-medium text-yellow-400/80">Experiment For Tomorrow</span>
-          <p id="experiment" class="text-sm text-yellow-200/90 mt-2"></p>
+          <p id="experiment" class="text-sm text-yellow-200/90 mt-2 whitespace-pre-line"></p>
         </div>
       </div>
       <div class="mt-8 flex flex-wrap gap-3">
@@ -76,7 +76,7 @@
         document.getElementById('experiment').textContent = data.experiment_for_tomorrow || '—';
         const drivers = Array.isArray(data.likely_drivers) ? data.likely_drivers : (data.likely_drivers ? [data.likely_drivers] : []);
         const ul = document.getElementById('drivers');
-        drivers.forEach(d => { const li = document.createElement('li'); li.textContent = typeof d === 'string' ? d : d.text || JSON.stringify(d); ul.appendChild(li); });
+        drivers.forEach(d => { const li = document.createElement('li'); li.className = 'whitespace-pre-line'; li.textContent = typeof d === 'string' ? d : (d.text || JSON.stringify(d)); ul.appendChild(li); });
         if (drivers.length === 0) ul.innerHTML = '<li class="text-neutral-500">—</li>';
       });
     }

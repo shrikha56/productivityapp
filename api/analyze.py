@@ -67,18 +67,57 @@ def analyze_with_gpt(transcript: str, sleep_hours: float, sleep_quality: int, en
     try:
         import openai
         client = openai.OpenAI(api_key=OPENAI_KEY)
-        prompt = f"""You are Signal, a performance pattern detection engine. You analyze daily reflections and detect factors impacting productivity. You do NOT provide therapy advice. You focus strictly on performance drivers.
+        prompt = f"""You are "Signal", a cognitive performance analysis engine. Your job is to generate a daily reflection grounded in behavioral science, cognitive psychology, and neuroscience.
 
-Anchors: sleep {sleep_hours}h, quality {sleep_quality}/5, energy {energy}/5, deep work blocks {deep_work}.
+INPUTS:
+- Sleep hours: {sleep_hours}
+- Sleep quality (1–5): {sleep_quality}
+- Energy (1–5): {energy}
+- Deep work blocks completed: {deep_work}
+- Optional notes: {transcript[:2000]}
 
-Reflection: {transcript[:1500]}
+RULES:
+1. Use evidence-based mechanisms only. Allowed domains: sleep restriction & executive function, working memory limits, cognitive load theory, attentional residue (Leroy, 2009), implementation intentions (Gollwitzer), habit loops (cue–routine–reward), dopamine & task initiation, stress arousal (Yerkes–Dodson), decision fatigue research, task switching costs.
+2. DO NOT invent study titles, journals, or specific years unless highly certain. Prefer "Research on sleep restriction shows...", "Cognitive load theory suggests...".
+3. Every section MUST reference at least one observable behavioral signal from today (e.g., delayed start, resistance before deep work, choice of admin tasks over deep work). If no behavioral evidence is present in the inputs, state "Insufficient data" for that section instead of guessing.
+4. BAN single-word drivers. Each driver MUST include a mechanism explanation (2-3 sentences). Never output drivers like "Sleep" or "Stress" alone.
+5. Write like a diagnostic performance report, not a self-help blog.
+6. Tone: Analytical. Precise. Non-emotional. No hype. No moralising. No fluff.
 
-Return JSON only. Focus on performance drivers (sleep, energy, focus, blockers), not emotional or relationship advice:
-{{"reflection_summary": "1-2 sentence summary of performance-relevant factors", "likely_drivers": ["driver1", "driver2"], "predicted_impact": "impact on next 24-48h performance", "experiment_for_tomorrow": "one small performance experiment"}}"""
-        r = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.3)
+Return valid JSON only. No markdown. Structure:
+{{
+  "reflection_summary": "100-150 words. Must cite observable behaviors from today. If no behavioral evidence: 'Insufficient data'.",
+  "core_bottleneck": "One sentence citing today's behavioral signal. If no evidence: 'Insufficient data'.",
+  "likely_drivers": ["Each driver: full mechanism explanation (2-3 sentences) + why it applies to today's observable behavior. No single-word drivers. If no evidence: return ['Insufficient data']."],
+  "predicted_impact": "How today's observed pattern affects focus, task initiation, mood stability, avoidance risk. Cite behavioral evidence. If none: 'Insufficient data'.",
+  "experiment_for_tomorrow": "ONE experiment tied to today's behavioral signal. Include: Trigger, Protocol, Measurement, Mechanism, Failure mode. If no behavioral evidence: 'Insufficient data'.",
+  "micro_interventions": ["Up to 3 tiny 2-5 min actions that support the main experiment. If insufficient data: []"]
+}}"""
+        r = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=2000,
+        )
         text = r.choices[0].message.content.strip()
-        if text.startswith("```"): text = text.split("```")[1].replace("json", "").strip()
-        return json.loads(text)
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        data = json.loads(text)
+        # Merge core_bottleneck into reflection_summary for display
+        core = data.get("core_bottleneck", "")
+        summary = data.get("reflection_summary", "")
+        if core:
+            data["reflection_summary"] = f"Core bottleneck: {core}\n\n{summary}"
+        # Append micro_interventions to experiment
+        micro = data.get("micro_interventions", [])
+        exp = data.get("experiment_for_tomorrow", "")
+        if micro:
+            exp += "\n\nMicro-interventions:\n" + "\n".join(f"• {m}" for m in micro[:3])
+            data["experiment_for_tomorrow"] = exp
+        return data
     except Exception as e:
         return {
             "reflection_summary": transcript[:200] or "No reflection provided.",
