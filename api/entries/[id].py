@@ -56,8 +56,21 @@ class handler(BaseHTTPRequestHandler):
                 self._send(404, {"error": "Entry not found"})
                 return
             from api.security import decrypt
-            entry["transcript"] = decrypt(entry.get("transcript") or "")
-            entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
+            def safe_decrypt(val):
+                s = decrypt(val or "")
+                return "" if (s and s.startswith("gAAAAA")) else (s or "")
+
+            entry["transcript"] = safe_decrypt(entry.get("transcript"))
+            entry["reflection_summary"] = safe_decrypt(entry.get("reflection_summary"))
+            entry_date = entry.get("date")
+            entry_num = entry.get("entry_number") or 1
+            try:
+                same_day = supabase.table("entries").select("entry_number").eq("user_id", user_id).eq("date", entry_date).execute()
+                nums = [r.get("entry_number") or 1 for r in (same_day.data or [])]
+                max_num = max(nums) if nums else 1
+                entry["is_final_for_day"] = (entry_num == max_num) or (len(nums) == 1)
+            except Exception:
+                entry["is_final_for_day"] = True
             self._send(200, {"data": entry})
         except Exception as e:
             err = str(e).lower()

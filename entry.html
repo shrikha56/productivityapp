@@ -86,8 +86,13 @@
         if (data.is_follow_up) document.getElementById('entry-title').textContent = 'Follow-up Signal';
         const drivers = Array.isArray(data.likely_drivers) ? data.likely_drivers : (data.likely_drivers ? [data.likely_drivers] : []);
         const isPendingAnalysis = drivers.length === 1 && drivers[0] === 'Analysis pending';
-        document.getElementById('summary').textContent = (data.reflection_summary || data.transcript || '—').trim() || '—';
-        if (isPendingAnalysis) {
+        const isFinalForDay = data.is_final_for_day !== false;
+        let summaryText = (data.reflection_summary || data.transcript || '').trim();
+        if (!summaryText || summaryText.startsWith('gAAAAA')) summaryText = data.transcript || '—';
+        if (!summaryText || summaryText.startsWith('gAAAAA')) summaryText = '—';
+        document.getElementById('summary').textContent = summaryText;
+        const showAnalysisSections = !isPendingAnalysis && isFinalForDay;
+        if (!showAnalysisSections) {
           document.getElementById('card-drivers').classList.add('hidden');
           document.getElementById('card-impact').classList.add('hidden');
           document.getElementById('card-experiment').classList.add('hidden');
