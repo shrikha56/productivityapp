@@ -93,14 +93,15 @@
 
           <p id="shared-guiding-questions" class="text-xs text-neutral-500 mb-3">How did you sleep? What are you feeling? What did you attempt?</p>
           <div id="quick-chips" class="flex flex-wrap gap-2 mb-4">
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">poor sleep</button>
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">snacking</button>
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">stomach pain</button>
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">low energy</button>
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">anxious</button>
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">unfocused</button>
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">good sleep</button>
-            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">productive</button>
+            <!-- Default chips (learned chips appended by JS) -->
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="poor sleep">poor sleep</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="snacking">snacking</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="stomach pain">stomach pain</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="low energy">low energy</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="anxious">anxious</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="unfocused">unfocused</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="good sleep">good sleep</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="productive">productive</button>
           </div>
 
           <!-- Type mode -->
@@ -119,7 +120,7 @@
 
           <!-- Voice mode -->
           <div id="voice-area" class="">
-            <p class="text-xs text-neutral-500 mb-3">How did you sleep? What are you feeling? What did you attempt?</p>
+            <p id="voice-guiding-questions" class="text-xs text-neutral-500 mb-3">How did you sleep? What are you feeling? What did you attempt?</p>
             <div class="min-h-[60px] mb-4">
               <p id="voice-preview" class="text-sm text-neutral-300 min-h-[1.25rem]"></p>
             </div>
@@ -227,6 +228,57 @@
 
     document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
 
+    const DEFAULT_CHIPS = ['poor sleep','snacking','stomach pain','low energy','anxious','unfocused','good sleep','productive'];
+    const STOP_WORDS = new Set('the a an of to in for on with at by is are was were be been being have has had do does did will would could should may might can must i me my myself we our and or but if then so it its that this'.split(' '));
+
+    function extractLearnedChips(entries) {
+      const text = (entries || [])
+        .map(e => (e.reflection_summary || '').trim())
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .replace(/[^a-z\s'-]/g, ' ');
+      if (!text.trim()) return [];
+      const words = text.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
+      const counts = {};
+      words.forEach(w => { counts[w] = (counts[w] || 0) + 1; });
+      for (let i = 0; i < words.length - 1; i++) {
+        const bigram = words[i] + ' ' + words[i + 1];
+        if (words[i].length >= 2 && words[i+1].length >= 2 && !STOP_WORDS.has(words[i]) && !STOP_WORDS.has(words[i+1])) {
+          counts[bigram] = (counts[bigram] || 0) + 1;
+        }
+      }
+      const sorted = Object.entries(counts)
+        .filter(([w]) => w.length >= 3 && !DEFAULT_CHIPS.includes(w))
+        .sort((a, b) => b[1] - a[1]);
+      return sorted.slice(0, 6).map(([w]) => w);
+    }
+
+    function addLearnedChips(words) {
+      if (!words || !words.length) return;
+      const container = document.getElementById('quick-chips');
+      const existing = new Set([...container.querySelectorAll('.chip-btn')].map(b => (b.dataset.word || b.textContent).trim().toLowerCase()));
+      words.forEach(w => {
+        const key = w.toLowerCase();
+        if (existing.has(key)) return;
+        existing.add(key);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors';
+        btn.dataset.word = w;
+        btn.textContent = w;
+        btn.onclick = () => {
+          const ta = document.getElementById('transcript-input');
+          const cur = ta.value.trim();
+          ta.value = cur ? cur + '. ' + w : w;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          updateChipSelection();
+        };
+        container.appendChild(btn);
+      });
+      updateChipSelection();
+    }
+
     let isFollowUp = false;
     (async () => {
       try {
@@ -245,6 +297,14 @@
           const dayNum = Math.min(uniqueDays + 1, 7);
           document.getElementById('day-label').textContent = 'Day ' + dayNum + ' of 7';
         }
+        try {
+          const entriesResp = await fetch('/api/entries', { headers: ah });
+          const entriesJson = await entriesResp.json();
+          if (entriesJson.data && entriesJson.data.length >= 2) {
+            const learned = extractLearnedChips(entriesJson.data);
+            addLearnedChips(learned);
+          }
+        } catch(e) { /* vocab learning optional */ }
       } catch(e) { console.error('Failed to check today entries', e); }
     })();
 
@@ -296,6 +356,30 @@
       if (window.waveAnim) window.waveAnim.resume();
     };
 
+    function updateChipSelection() {
+      const text = (document.getElementById('transcript-input').value || '').toLowerCase();
+      document.querySelectorAll('.chip-btn').forEach(btn => {
+        const word = (btn.dataset.word || btn.textContent || '').trim().toLowerCase();
+        const selected = word && text.includes(word);
+        btn.classList.toggle('bg-white/15', selected);
+        btn.classList.toggle('text-white', selected);
+        btn.classList.toggle('border-white/30', selected);
+        btn.classList.toggle('bg-white/5', !selected);
+        btn.classList.toggle('text-neutral-400', !selected);
+      });
+    }
+
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.onclick = () => {
+        const ta = document.getElementById('transcript-input');
+        const word = btn.dataset.word || btn.textContent.trim();
+        const cur = ta.value.trim();
+        ta.value = cur ? cur + '. ' + word : word;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        updateChipSelection();
+      };
+    });
+
     function getFallbackQuestions(text) {
       const t = text.toLowerCase();
       const questions = [];
@@ -336,7 +420,7 @@
     document.getElementById('transcript-input').addEventListener('input', (e) => {
       const text = e.target.value.trim();
       document.getElementById('live-preview').textContent = text ? text + '…' : '';
-      if (typeof updateChipSelection === 'function') updateChipSelection();
+      updateChipSelection();
       const el = document.getElementById('clarify-questions');
       const label = document.getElementById('clarify-label');
       if (clarifyAbort) clarifyAbort.abort();
@@ -580,6 +664,8 @@
       prev.textContent = full;
       prev.classList.remove('hidden');
       document.getElementById('voice-preview').textContent = full.slice(0, 120) + (full.length > 120 ? '…' : '');
+      document.getElementById('voice-guiding-questions').classList.toggle('hidden', !!full.trim());
+      updateChipSelection();
       showPostRecordUI();
       if (typeof updateChipSelection === 'function') updateChipSelection();
 
@@ -617,6 +703,7 @@
         chip.onclick = () => {
           // Show the question as a prompt — user can record their answer
           document.getElementById('voice-preview').textContent = q;
+          document.getElementById('voice-guiding-questions').classList.add('hidden');
           chip.classList.add('border-white/30', 'text-white', 'bg-white/10');
           chip.disabled = true;
         };
@@ -630,6 +717,7 @@
       document.getElementById('transcript-preview').textContent = '';
       document.getElementById('transcript-preview').classList.add('hidden');
       document.getElementById('voice-preview').textContent = '';
+      document.getElementById('voice-guiding-questions').classList.remove('hidden');
       document.getElementById('voice-clarify-area').classList.add('hidden');
       document.getElementById('voice-clarify-questions').innerHTML = '';
       hidePostRecordUI();

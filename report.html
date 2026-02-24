@@ -109,6 +109,19 @@
             <p class="text-[10px] text-neutral-600 mt-2">Bar length = performance score (0–100) from sleep, energy, quality & deep work</p>
           </div>
         </div>
+        <!-- Prediction (3+ days) -->
+        <div id="prediction-section" class="hidden mt-6 pt-6 border-t border-white/10">
+          <p class="text-xs text-neutral-500 mb-3">7-Day Projection</p>
+          <p class="text-[10px] text-neutral-600 mb-3">Based on your current trend: green = if you follow AI suggestions, red = if issues continue</p>
+          <div class="relative">
+            <svg id="prediction-svg" class="chart" height="120" viewBox="0 0 700 120" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="flex gap-4 mt-2 text-[10px] text-neutral-500">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-white/50"></span>Actual</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-emerald-400/80"></span>Following suggestions</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-red-400/80"></span>Status quo</span>
+          </div>
+        </div>
         <div class="mt-6">
           <p class="text-xs text-neutral-500 mb-3">Sleep & Energy</p>
           <div class="flex gap-4 text-[10px] text-neutral-500 mb-2">
@@ -236,6 +249,30 @@
       return Math.round(((e.sleep_quality || 3) / 5) * 35 + Math.min((e.sleep_hours || 0) / 8, 1) * 25 + ((e.energy || 3) / 5) * 25 + ((e.deep_work_blocks || 0) / 5) * 15);
     }
 
+    function renderPrediction(slice) {
+      const scores = slice.map(computeScore);
+      const lastScore = scores[scores.length - 1];
+      const trend = scores.length >= 2 ? (lastScore - scores[scores.length - 2]) : 0;
+      const greenProj = [Math.min(100, lastScore + 8), Math.min(100, lastScore + 16), Math.min(100, lastScore + 24)];
+      const redProj = [Math.max(0, lastScore + (trend < 0 ? -5 : -2)), Math.max(0, lastScore + (trend < 0 ? -10 : -4)), Math.max(0, lastScore + (trend < 0 ? -15 : -6))];
+      const totalPoints = scores.length + 3;
+      const svg = document.getElementById('prediction-svg');
+      const W = 700, H = 120, pad = { left: 28, right: 10, top: 8, bottom: 20 };
+      const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
+      const xStep = totalPoints > 1 ? iW / (totalPoints - 1) : iW;
+      const px = i => pad.left + i * xStep;
+      const py = v => pad.top + iH - (v / 100) * iH;
+      const actualPath = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
+      const greenPath = 'M' + [lastScore, ...greenProj].map((v, i) => `${px(scores.length - 1 + i)},${py(v)}`).join(' L');
+      const redPath = 'M' + [lastScore, ...redProj].map((v, i) => `${px(scores.length - 1 + i)},${py(v)}`).join(' L');
+      svg.innerHTML = `
+        <path d="${actualPath}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+        <path d="${greenPath}" fill="none" stroke="rgba(52,211,153,0.8)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+        <path d="${redPath}" fill="none" stroke="rgba(248,113,113,0.8)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+        ${scores.map((v, i) => `<circle cx="${px(i)}" cy="${py(v)}" r="2.5" fill="white"/>`).join('')}
+      `;
+    }
+
     function renderCharts(entries) {
       if (!entries || entries.length < 2) return;
       const slice = entries.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -264,6 +301,14 @@
       document.getElementById('report-x-labels').innerHTML = labels.map(l =>
         `<span class="text-[9px] text-neutral-600">${l}</span>`
       ).join('');
+
+      // Prediction chart (3+ days)
+      if (slice.length >= 3) {
+        document.getElementById('prediction-section').classList.remove('hidden');
+        renderPrediction(slice);
+      } else {
+        document.getElementById('prediction-section').classList.add('hidden');
+      }
 
       // Daily trend bars
       const dayL = ['S','M','T','W','T','F','S'];
