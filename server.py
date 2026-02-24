@@ -172,7 +172,7 @@ def list_entries():
 @app.route("/api/entries/today", methods=["GET"])
 @require_auth
 def today_entries():
-    """Check how many entries the user has for today."""
+    """Check how many entries the user has for today and total unique days logged."""
     user_id = request.authenticated_user_id
     today = __import__("datetime").date.today().isoformat()
     supabase = get_supabase()
@@ -188,7 +188,13 @@ def today_entries():
                 "user_id", user_id
             ).eq("date", today).execute()
         entries = result.data or []
-        return jsonify({"count": len(entries), "entries": entries})
+        today_count = len(entries)
+
+        result_all = supabase.table("entries").select("date").eq("user_id", user_id).order("date", desc=True).limit(100).execute()
+        all_dates = result_all.data or []
+        unique_days = len(set(r.get("date") for r in all_dates if r.get("date")))
+
+        return jsonify({"count": today_count, "entries": entries, "unique_days": unique_days})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -412,8 +418,10 @@ def weekly_report():
         entry["transcript"] = decrypt(entry.get("transcript") or "")
         entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
 
-    if len(entries) < 7:
-        return jsonify({"locked": True, "entries_count": len(entries), "needed": 7})
+    unique_dates = sorted(set(e.get("date") for e in entries if e.get("date")), reverse=True)
+    entries_count = len(unique_dates)
+    if entries_count < 7:
+        return jsonify({"locked": True, "entries_count": entries_count, "needed": 7})
 
     report = weekly_report_mod.generate_weekly_report(entries[:14], api_key=OPENAI_KEY)
     if report.get("error") and not report.get("week_narrative"):
@@ -462,31 +470,41 @@ def check_topics():
     try:
         import openai
         client = openai.OpenAI(api_key=OPENAI_KEY)
-        prompt = f"""A user recorded a daily voice reflection. Check if 3 topics are covered. This is informal speech — look for ANY mention, even brief or indirect. Be lenient. When in doubt, mark as ADDRESSED.
+        prompt = f"""A user recorded a daily voice reflection for a cognitive performance tool. Analyze it for completeness AND quality.
 
-TOPIC 1 — "How did you sleep?"
-ADDRESSED if they mention sleep at all: waking up, sleep time, sleep quality, tiredness from sleep, wanting to sleep more, etc.
-Examples: "woke up at 7", "slept well", "didn't sleep enough", "wanted to sleep in" → all ADDRESSED
+STEP 1 — Check if 3 core topics are covered. Be lenient — any mention counts.
+  TOPIC 1 — "How did you sleep?" (sleep, waking, tiredness from sleep, hours, etc.)
+  TOPIC 2 — "What are you feeling?" (ANY emotion, energy, physical state)
+  TOPIC 3 — "What did you attempt?" (ANY activity, work, or lack thereof)
 
-TOPIC 2 — "What are you feeling?"
-ADDRESSED if they describe ANY emotion, energy state, or physical feeling during the day.
-Examples: "felt tired", "was energetic", "felt unproductive", "I'm sick", "was lethargic", "felt overwhelmed" → all ADDRESSED
-
-TOPIC 3 — "What did you attempt?"
-ADDRESSED if they mention ANY activity, work, or what they did (or didn't do).
-Examples: "went to work", "had a meeting", "worked on my app", "did nothing", "went to class" → all ADDRESSED
+STEP 2 — Check for reflection quality issues:
+  BIAS CHECK: Is the reflection heavily one-sided?
+    - Only positive ("everything was great, amazing day, no issues") with no specific behaviors → flag
+    - Only negative ("everything sucked, worst day ever") with no specific behaviors → flag
+    - Off-topic: mostly about other people's business, gossip, unrelated stories with no connection to the user's own performance → flag
+  If biased or off-topic, add a gentle guiding question to "missing".
 
 Reflection: "{text[:1200]}"
 
-Return JSON array of ONLY truly missing topics (topics with ZERO mention). Use exact strings:
-["How did you sleep?", "What are you feeling?", "What did you attempt?"]
-Return [] if all three are mentioned even briefly."""
+Return JSON only:
+{{
+  "missing": ["exact topic questions from above OR a guiding question for bias/off-topic"],
+  "bias_warning": null or a short string like "mostly_positive", "mostly_negative", "off_topic" if detected
+}}
+Return {{"missing": [], "bias_warning": null}} if complete and balanced."""
         r = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.1, max_tokens=100)
         raw = (r.choices[0].message.content or "").strip()
         if raw.startswith("```"): raw = raw.split("```")[1].replace("json", "").strip()
+        start = raw.find("{"); end = raw.rfind("}") + 1
+        if start >= 0 and end > start: raw = raw[start:end]
         out = json.loads(raw)
-        missing = [q for q in out if isinstance(q, str) and q in ("How did you sleep?", "What are you feeling?", "What did you attempt?")]
-        return jsonify({"missing": missing})
+        missing = out.get("missing", []) if isinstance(out, dict) else out
+        if isinstance(missing, list):
+            missing = [q for q in missing if isinstance(q, str)]
+        else:
+            missing = []
+        bias = out.get("bias_warning") if isinstance(out, dict) else None
+        return jsonify({"missing": missing, "bias_warning": bias})
     except Exception as e:
         print("[check-topics] GPT error:", type(e).__name__, str(e))
         return jsonify({"missing": _fallback_check_topics(text)})

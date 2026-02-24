@@ -226,6 +226,10 @@
           document.querySelector('[name="sleep_hours"]').removeAttribute('required');
           document.getElementById('day-label').textContent = 'Entry ' + (json.count + 1) + ' today';
           document.getElementById('generate-btn').textContent = "Add Follow-up";
+        } else {
+          const uniqueDays = json.unique_days ?? 0;
+          const dayNum = Math.min(uniqueDays + 1, 7);
+          document.getElementById('day-label').textContent = 'Day ' + dayNum + ' of 7';
         }
       } catch(e) { console.error('Failed to check today entries', e); }
     })();
@@ -729,15 +733,17 @@
       return new Set(text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 2)).size;
     }
 
+    let lastBiasWarning = null;
     async function getMissingTopics(text) {
+      lastBiasWarning = null;
       if (!text || text.trim().length < 5) return ['How did you sleep?', 'What are you feeling?', 'What did you attempt?'];
       const clientMissing = clientFallbackCheck(text);
       const uniqueWords = countUniqueWords(text);
-      // Rich reflection: 30+ unique words AND client check passes at least 2 of 3 topics
       if (uniqueWords >= 30 && clientMissing.length <= 1) return [];
       try {
         const r = await authFetch('/api/check-topics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) });
         const data = await r.json();
+        if (data.bias_warning) lastBiasWarning = data.bias_warning;
         if (r.ok && Array.isArray(data.missing)) return data.missing;
         return clientMissing;
       } catch (err) {
@@ -811,18 +817,30 @@
       const missing = await getMissingTopics(payload.transcript);
       generateBtn.disabled = false;
       generateBtn.textContent = "Generate Today's Signal";
-      if (missing.length > 0) {
+      if (missing.length > 0 || lastBiasWarning) {
         missingQuestions.innerHTML = '';
+        if (lastBiasWarning) {
+          const biasHints = {
+            'mostly_positive': 'Your reflection focuses mainly on positives. Try adding: what challenged you today? Where did you lose focus or energy?',
+            'mostly_negative': 'Your reflection focuses mainly on negatives. Try adding: what went well, even slightly? What did you manage to do despite the difficulty?',
+            'off_topic': 'Your reflection seems to focus on external events. Try connecting it to your own performance: how did this affect your energy, focus, or output?',
+          };
+          const hint = biasHints[lastBiasWarning] || 'Try to balance your reflection with both challenges and wins.';
+          const d = document.createElement('div');
+          d.className = 'p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-xs mb-3';
+          d.textContent = hint;
+          missingQuestions.appendChild(d);
+        }
         missing.forEach(q => {
           const p = document.createElement('p');
           p.className = 'text-sm text-neutral-300';
           p.textContent = '→ ' + q;
           missingQuestions.appendChild(p);
         });
-        missingTitle.textContent = 'Your reflection may be incomplete';
-        missingBody.textContent = 'We didn\u2019t find these in your reflection:';
+        missingTitle.textContent = lastBiasWarning ? 'Your reflection could be more balanced' : 'Your reflection may be incomplete';
+        missingBody.textContent = lastBiasWarning && missing.length === 0 ? 'A balanced reflection helps generate more accurate analysis:' : 'We didn\u2019t find these in your reflection:';
         missingProceed.classList.remove('hidden');
-        missingProceed.textContent = 'Yes, I answered everything';
+        missingProceed.textContent = 'Continue anyway';
         pendingSubmit = payload;
         missingModal.classList.remove('hidden');
         return;

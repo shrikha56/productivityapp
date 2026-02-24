@@ -6,7 +6,8 @@ import re
 import jwt
 
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
-ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
+def _get_encryption_key():
+    return os.environ.get("ENCRYPTION_KEY", "")
 
 # ── JWT verification ──
 
@@ -47,12 +48,17 @@ def get_user_id(auth_header: str) -> str | None:
 # ── Field encryption ──
 
 _fernet = None
+_fernet_key_used = None
 
 def _get_fernet():
-    global _fernet
-    if _fernet is None and ENCRYPTION_KEY:
+    global _fernet, _fernet_key_used
+    key = _get_encryption_key()
+    if key and (key != _fernet_key_used or _fernet is None):
         from cryptography.fernet import Fernet
-        _fernet = Fernet(ENCRYPTION_KEY.encode())
+        _fernet = Fernet(key.encode())
+        _fernet_key_used = key
+    if not key:
+        return None
     return _fernet
 
 
@@ -101,8 +107,11 @@ def clamp_int(value, low: int, high: int, default: int = None) -> int:
 
 def clamp_float(value, low: float, high: float, default: float = None) -> float:
     """Safely parse and clamp a float."""
+    import math
     try:
         v = float(value)
+        if math.isnan(v) or math.isinf(v):
+            return default if default is not None else low
         return max(low, min(high, v))
     except (TypeError, ValueError):
         return default if default is not None else low

@@ -196,8 +196,10 @@ class handler(BaseHTTPRequestHandler):
             entry["transcript"] = decrypt(entry.get("transcript") or "")
             entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
 
-        if len(entries) < 7:
-            self._send(200, {"locked": True, "entries_count": len(entries), "needed": 7})
+        unique_dates = set(e.get("date") for e in entries if e.get("date"))
+        entries_count = len(unique_dates)
+        if entries_count < 7:
+            self._send(200, {"locked": True, "entries_count": entries_count, "needed": 7})
             return
 
         report = generate_weekly_report(entries[:14], api_key=OPENAI_KEY)

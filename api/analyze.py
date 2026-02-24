@@ -86,6 +86,8 @@ RULES:
 4. BAN single-word drivers. Each driver MUST include a mechanism explanation (2-3 sentences). Never output drivers like "Sleep" or "Stress" alone.
 5. Write like a diagnostic performance report, not a self-help blog.
 6. Tone: Analytical. Precise. Non-emotional. No hype. No moralising. No fluff.
+7. LIFE EVENT DETECTION: If the user mentions an acute, one-off life event (family emergency, illness, bereavement, accident, major conflict), flag it as a contextual outlier. Do NOT treat it as a recurring pattern. In your analysis, note "This appears to be an acute situational disruption, not a recurring behavioral pattern." The experiment should focus on recovery and damage-limitation (e.g., protect sleep, reduce decision load) rather than optimization.
+8. BIAS DETECTION: If the reflection is heavily one-sided (only positive or only negative) or off-topic (unrelated business encounters, gossip), note the limitation in your reflection_summary: "Note: This reflection may not capture the full picture — [reason]." Still generate the best analysis possible from available data.
 
 Return valid JSON only. No markdown. Structure:
 {{
@@ -93,8 +95,10 @@ Return valid JSON only. No markdown. Structure:
   "core_bottleneck": "One sentence citing today's behavioral signal. If no evidence: 'Insufficient data'.",
   "likely_drivers": ["Each driver: full mechanism explanation (2-3 sentences) + why it applies to today's observable behavior. No single-word drivers. If no evidence: return ['Insufficient data']."],
   "predicted_impact": "How today's observed pattern affects focus, task initiation, mood stability, avoidance risk. Cite behavioral evidence. If none: 'Insufficient data'.",
-  "experiment_for_tomorrow": "ONE experiment tied to today's behavioral signal. Include: Trigger, Protocol, Measurement, Mechanism, Failure mode. If no behavioral evidence: 'Insufficient data'.",
-  "micro_interventions": ["Up to 3 tiny 2-5 min actions that support the main experiment. If insufficient data: []"]
+  "experiment_for_tomorrow": "ONE experiment tied to today's behavioral signal. Include: Trigger, Protocol, Measurement, Mechanism, Failure mode. If no behavioral evidence: 'Insufficient data'. If acute life event: focus on recovery, not optimization.",
+  "micro_interventions": ["Up to 3 tiny 2-5 min actions that support the main experiment. If insufficient data: []"],
+  "is_outlier": false,
+  "outlier_reason": null
 }}"""
         r = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -146,6 +150,10 @@ Return valid JSON only. No markdown. Structure:
         summary = data.get("reflection_summary", "")
         if core:
             data["reflection_summary"] = f"Core bottleneck: {core}\n\n{summary}"
+
+        if data.get("is_outlier"):
+            reason = data.get("outlier_reason") or "acute life event"
+            data["predicted_impact"] = f"⚠ OUTLIER DAY ({reason}): This entry reflects an acute situational disruption, not a recurring behavioral pattern. It will not distort your trend analysis.\n\n{data.get('predicted_impact', '')}"
 
         # Append micro_interventions to experiment
         micro = data.get("micro_interventions") or []
