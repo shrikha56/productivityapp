@@ -13,6 +13,34 @@
     #report-multi-svg { min-height: 100px; }
     .bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+
+    /* Weekly Aura Orb */
+    .aura-scene { position: relative; display: flex; align-items: center; justify-content: center; height: 320px; }
+    .aura-ring { position: absolute; border-radius: 50%; background: transparent; border: 1px solid rgba(255,255,255,0.04); animation: auraRingPulse 6s ease-in-out infinite; }
+    .aura-ring-1 { width: 280px; height: 280px; }
+    .aura-ring-2 { width: 230px; height: 230px; border-color: rgba(255,255,255,0.06); animation-delay: -2s; }
+    .aura-glow { position: absolute; border-radius: 50%; filter: blur(48px); pointer-events: none; top: 50%; left: 50%; }
+    .aura-orb-wrap { width: 180px; height: 180px; position: relative; z-index: 2; animation: auraFloat 5s ease-in-out infinite; }
+    .aura-orb {
+      width: 100%; height: 100%; border-radius: 50%; position: relative;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.4), inset 0 -12px 32px rgba(0,0,0,0.35);
+    }
+    .aura-orb::before {
+      content: ''; position: absolute; top: 12%; left: 18%; width: 38%; height: 26%;
+      background: radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.08) 60%, transparent 100%);
+      border-radius: 50%; transform: rotate(-28deg);
+    }
+    .aura-orb::after {
+      content: ''; position: absolute; inset: 0; border-radius: 50%; mix-blend-mode: overlay;
+      animation: auraSwirl 14s linear infinite reverse;
+    }
+    .aura-rim { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,0,0,0.3); pointer-events: none; z-index: 3; }
+    @keyframes auraFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+    @keyframes auraSwirl { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+    @keyframes auraRingPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.04); opacity: 1; } }
+    @keyframes driftG1 { 0%, 100% { transform: translate(-50%,-50%) translate(-35px,25px); } 50% { transform: translate(-50%,-50%) translate(-50px,40px); } }
+    @keyframes driftG2 { 0%, 100% { transform: translate(-50%,-50%) translate(25px,-25px); } 50% { transform: translate(-50%,-50%) translate(40px,-10px); } }
+    @keyframes driftG3 { 0%, 100% { transform: translate(-50%,-50%) translate(-8px,-45px); } 50% { transform: translate(-50%,-50%) translate(8px,-55px); } }
   </style>
 </head>
 <body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
@@ -192,6 +220,27 @@
         <ul id="micro-shifts" class="mt-3 space-y-2"></ul>
       </section>
 
+      <!-- Weekly Aura -->
+      <section id="aura-section" class="glass-card rounded-2xl p-6 text-center">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Your Week's Aura</span>
+        <p class="text-[10px] text-neutral-500 mt-1">A living snapshot of your week — shaped by sleep, energy, focus, and emotional tone.</p>
+        <div class="aura-scene mt-4">
+          <div id="aura-glow-1" class="aura-glow" style="width:160px;height:160px;transform:translate(-50%,-50%) translate(-35px,25px);animation:driftG1 8s ease-in-out infinite"></div>
+          <div id="aura-glow-2" class="aura-glow" style="width:120px;height:120px;transform:translate(-50%,-50%) translate(25px,-25px);animation:driftG2 10s ease-in-out infinite"></div>
+          <div id="aura-glow-3" class="aura-glow" style="width:90px;height:90px;transform:translate(-50%,-50%) translate(-8px,-45px);animation:driftG3 7s ease-in-out infinite"></div>
+          <div class="aura-ring aura-ring-1"></div>
+          <div class="aura-ring aura-ring-2"></div>
+          <div class="aura-orb-wrap">
+            <div id="aura-orb" class="aura-orb">
+              <div class="aura-rim"></div>
+            </div>
+          </div>
+        </div>
+        <p id="aura-label" class="text-sm text-neutral-300 mt-2 font-medium"></p>
+        <p id="aura-desc" class="text-xs text-neutral-500 mt-1"></p>
+        <p class="text-[10px] text-neutral-600 mt-4 italic">"My week looked like this."</p>
+      </section>
+
       <div class="flex flex-wrap gap-3 pt-2">
         <a href="/checkin" class="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">New check-in</a>
         <a id="full-analysis-link" href="/analysis" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">Full analysis</a>
@@ -204,17 +253,95 @@
   <script>
     (function() {
     const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
-    const isDemo = new URLSearchParams(location.search).has('demo');
+    const params = new URLSearchParams(location.search);
+    const isDemo = params.has('demo');
+    const demoVariant = params.get('v') || 'balanced';
 
-    const DEMO_ENTRIES = [
-      {date:'2026-02-17',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
-      {date:'2026-02-18',sleep_hours:7.5,sleep_quality:3,energy:3,deep_work_blocks:1},
-      {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:2},
-      {date:'2026-02-20',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
-      {date:'2026-02-21',sleep_hours:8,sleep_quality:4,energy:3,deep_work_blocks:1},
-      {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2},
-      {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:3,deep_work_blocks:1}
-    ];
+    const DEMO_VARIANTS = {
+      balanced: {
+        label: 'Feb 17–23, 2026 (balanced week)',
+        narrative: 'A week of moderate ups and downs. Sleep was inconsistent but energy held steady. Some deep work sessions kept focus alive.',
+        patterns: ['Sleep variance impacted morning energy','Afternoon deep work was most productive'],
+        derailers: ['Inconsistent bedtime','Skipped meals on busy days'],
+        bright_spots: ['Two solid deep-work sessions','Good recovery on weekend'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-18',sleep_hours:7.5,sleep_quality:3,energy:3,deep_work_blocks:1},
+          {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:2},
+          {date:'2026-02-20',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-21',sleep_hours:8,sleep_quality:4,energy:3,deep_work_blocks:1},
+          {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2},
+          {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:3,deep_work_blocks:1}
+        ]
+      },
+      stress: {
+        label: 'Feb 17–23, 2026 (high-stress week)',
+        narrative: 'A rough week dominated by stress and friction. Sleep was poor and inconsistent, energy crashed mid-week, and deep work was nearly impossible. Anxiety and overwhelm were recurring themes.',
+        patterns: ['Stress kept building without release','Sleep deprivation compounded irritability'],
+        derailers: ['Overwhelm from deadlines','Late-night screen time','Skipping exercise'],
+        bright_spots: ['Managed one calm evening walk on Friday'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:4.5,sleep_quality:1,energy:2,deep_work_blocks:0},
+          {date:'2026-02-18',sleep_hours:5,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-19',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-20',sleep_hours:4,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-21',sleep_hours:5,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-22',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:1},
+          {date:'2026-02-23',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0}
+        ]
+      },
+      focus: {
+        label: 'Feb 17–23, 2026 (deep-focus week)',
+        narrative: 'An exceptional week of deep focus and concentration. Stable sleep fueled immersive deep work sessions. You were in flow state multiple days — productive, engaged, and progressing steadily.',
+        patterns: ['Consistent 7.5+ hours of sleep','Deep work blocks every single day'],
+        derailers: ['Slight fatigue by Thursday from intensity'],
+        bright_spots: ['Flow state on three consecutive days','Highest deep-work output this month','Sleep consistency was excellent'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:3},
+          {date:'2026-02-18',sleep_hours:8,sleep_quality:5,energy:5,deep_work_blocks:4},
+          {date:'2026-02-19',sleep_hours:7.5,sleep_quality:5,energy:5,deep_work_blocks:4},
+          {date:'2026-02-20',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:3},
+          {date:'2026-02-21',sleep_hours:8,sleep_quality:5,energy:5,deep_work_blocks:5},
+          {date:'2026-02-22',sleep_hours:8,sleep_quality:5,energy:4,deep_work_blocks:3},
+          {date:'2026-02-23',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2}
+        ]
+      },
+      energy: {
+        label: 'Feb 17–23, 2026 (high-energy week)',
+        narrative: 'A high-energy week with strong momentum. You felt energized and active throughout. Sleep was decent though not perfect, but energy levels stayed consistently high. Enthusiasm drove action.',
+        patterns: ['Morning energy peaks drove early productivity','Social energy boosted mood'],
+        derailers: ['Slight overstimulation by evening','Could have channeled energy into deeper focus'],
+        bright_spots: ['Consistently high energy all week','Strong motivation and enthusiasm','Active lifestyle choices'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:7,sleep_quality:3,energy:5,deep_work_blocks:1},
+          {date:'2026-02-18',sleep_hours:6.5,sleep_quality:3,energy:5,deep_work_blocks:1},
+          {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:5,deep_work_blocks:2},
+          {date:'2026-02-20',sleep_hours:6.5,sleep_quality:3,energy:4,deep_work_blocks:1},
+          {date:'2026-02-21',sleep_hours:7,sleep_quality:4,energy:5,deep_work_blocks:1},
+          {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:5,deep_work_blocks:2},
+          {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:4,deep_work_blocks:1}
+        ]
+      },
+      fatigue: {
+        label: 'Feb 17–23, 2026 (burnout week)',
+        narrative: 'A week of deep fatigue and low reserves. Energy was drained, sleep was insufficient, and everything felt sluggish. The body and mind were signaling hard for rest and recovery.',
+        patterns: ['Exhaustion accumulated day over day','Low sleep hours with poor quality'],
+        derailers: ['Chronic under-sleeping','No exercise or movement','Lethargy prevented deep work'],
+        bright_spots: ['Recognized the need to slow down by weekend'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:5,sleep_quality:2,energy:1,deep_work_blocks:0},
+          {date:'2026-02-18',sleep_hours:5.5,sleep_quality:2,energy:1,deep_work_blocks:0},
+          {date:'2026-02-19',sleep_hours:4.5,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-20',sleep_hours:5,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-21',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-22',sleep_hours:5.5,sleep_quality:2,energy:1,deep_work_blocks:0},
+          {date:'2026-02-23',sleep_hours:5,sleep_quality:2,energy:2,deep_work_blocks:0}
+        ]
+      }
+    };
+
+    const DEMO_DATA = DEMO_VARIANTS[demoVariant] || DEMO_VARIANTS.balanced;
+    const DEMO_ENTRIES = DEMO_DATA.entries;
 
     if (!isDemo) {
       sb.auth.getSession().then(({ data: { session } }) => {
@@ -349,6 +476,106 @@
       `;
     }
 
+    function renderAura(entries, data) {
+      if (!entries || entries.length < 2) { document.getElementById('aura-section').classList.add('hidden'); return; }
+      document.getElementById('aura-section').classList.remove('hidden');
+
+      const n = entries.length;
+      const avgSleep = entries.reduce((s, e) => s + (e.sleep_hours || 0), 0) / n;
+      const avgQuality = entries.reduce((s, e) => s + (e.sleep_quality || 3), 0) / n;
+      const avgEnergy = entries.reduce((s, e) => s + (e.energy || 3), 0) / n;
+      const avgDeepWork = entries.reduce((s, e) => s + (e.deep_work_blocks || 0), 0) / n;
+      const sleepVals = entries.map(e => e.sleep_hours || 0);
+      const sleepMean = avgSleep;
+      const sleepStd = Math.sqrt(sleepVals.reduce((s, v) => s + (v - sleepMean) ** 2, 0) / n);
+      const sleepStability = Math.max(0, 1 - sleepStd / 3);
+
+      const text = [
+        data.week_narrative || '',
+        ...(data.recurring_patterns || []),
+        ...(data.top_derailers || []),
+        ...(data.bright_spots || [])
+      ].join(' ').toLowerCase();
+
+      const stressWords = ['stress','anxious','overwhelm','burnout','friction','frustrat','irritat','tension','rush','panic','worry'];
+      const calmWords = ['calm','peace','relax','steady','stable','balanced','grounded','serene','rest','ease'];
+      const focusWords = ['focus','deep work','productive','flow','concentrat','immersed','engaged','progress'];
+      const fatigueWords = ['tired','exhaust','fatigue','drain','sluggish','low energy','burnout','letharg'];
+
+      const countHits = (words) => words.reduce((c, w) => c + (text.includes(w) ? 1 : 0), 0);
+      const stressHits = countHits(stressWords);
+      const calmHits = countHits(calmWords);
+      const focusHits = countHits(focusWords);
+      const fatigueHits = countHits(fatigueWords);
+
+      let wCalm = sleepStability * 0.6 + (avgQuality / 5) * 0.4 + calmHits * 0.15;
+      let wFocus = (avgDeepWork / 3) * 0.7 + focusHits * 0.15;
+      let wEnergy = (avgEnergy / 5) * 0.8;
+      let wStress = (1 - avgQuality / 5) * 0.4 + stressHits * 0.2 + (avgEnergy < 2.5 && avgQuality < 3 ? 0.3 : 0);
+      let wFatigue = (1 - avgEnergy / 5) * 0.5 + (avgSleep < 6 ? 0.3 : 0) + fatigueHits * 0.15;
+
+      const total = wCalm + wFocus + wEnergy + wStress + wFatigue + 0.001;
+      wCalm /= total; wFocus /= total; wEnergy /= total; wStress /= total; wFatigue /= total;
+
+      const channels = [
+        { w: wCalm,    rgb: [59, 130, 246],  label: 'Calm',    hex: 'rgba(59,130,246,' },
+        { w: wFocus,   rgb: [147, 51, 234],  label: 'Focus',   hex: 'rgba(147,51,234,' },
+        { w: wEnergy,  rgb: [250, 204, 21],  label: 'Energy',  hex: 'rgba(250,204,21,' },
+        { w: wStress,  rgb: [239, 68, 68],   label: 'Stress',  hex: 'rgba(239,68,68,' },
+        { w: wFatigue, rgb: [156, 163, 175], label: 'Fatigue', hex: 'rgba(156,163,175,' }
+      ];
+      channels.sort((a, b) => b.w - a.w);
+
+      const primary = channels[0], secondary = channels[1], tertiary = channels[2];
+
+      const mix = (a, b, t) => a.map((v, i) => Math.round(v * (1 - t) + b[i] * t));
+      const coreColor = mix(primary.rgb, secondary.rgb, 0.35);
+      const midColor = mix(secondary.rgb, tertiary.rgb, 0.4);
+
+      const orbEl = document.getElementById('aura-orb');
+      orbEl.style.background = `radial-gradient(circle at 38% 32%,
+        rgba(255,255,255,0.45) 0%,
+        rgb(${coreColor.join(',')}) 18%,
+        rgb(${midColor.join(',')}) 45%,
+        rgb(${tertiary.rgb.join(',')}) 68%,
+        rgb(${channels[3].rgb.join(',')}) 85%,
+        rgb(${channels[4].rgb.join(',')}) 100%)`;
+
+      const conicStops = channels.map((ch, i) => {
+        const deg = (i / channels.length) * 360;
+        return `${ch.hex}0.4) ${deg}deg`;
+      });
+      conicStops.push(`${channels[0].hex}0.35) 360deg`);
+      orbEl.style.setProperty('--aura-conic', `conic-gradient(from 0deg, ${conicStops.join(', ')})`);
+
+      const afterStyle = document.createElement('style');
+      afterStyle.textContent = `#aura-orb::after { background: conic-gradient(from 0deg, ${conicStops.join(', ')}); }`;
+      document.head.appendChild(afterStyle);
+
+      const g1 = document.getElementById('aura-glow-1');
+      const g2 = document.getElementById('aura-glow-2');
+      const g3 = document.getElementById('aura-glow-3');
+      g1.style.background = `${primary.hex}0.25)`;
+      g2.style.background = `${secondary.hex}0.28)`;
+      g3.style.background = `${tertiary.hex}0.2)`;
+
+      orbEl.style.boxShadow = `0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.4), 0 0 80px ${primary.hex}0.18), inset 0 -12px 32px rgba(0,0,0,0.35)`;
+
+      const labelEl = document.getElementById('aura-label');
+      const descEl = document.getElementById('aura-desc');
+      const moods = channels.filter(c => c.w > 0.15).map(c => c.label);
+      labelEl.textContent = moods.length ? moods.join(' + ') : primary.label;
+
+      const descriptions = {
+        'Calm': 'Stable sleep and balanced routines created a grounded week.',
+        'Focus': 'Deep work sessions dominated — you were in the zone.',
+        'Energy': 'High energy ran through the week — momentum was strong.',
+        'Stress': 'Friction and pressure colored the week. Recovery matters.',
+        'Fatigue': 'Low reserves this week. Rest and recharge are key.'
+      };
+      descEl.textContent = descriptions[primary.label] || '';
+    }
+
     function renderReport(data) {
       document.getElementById('demo-badge').classList.toggle('hidden', !isDemo);
       document.getElementById('report-range').textContent = isDemo ? 'Feb 17–23, 2026 (sample data)' : (data.date_range || '');
@@ -390,7 +617,10 @@
       const entries = data.entries && data.entries.length ? data.entries : (isDemo ? DEMO_ENTRIES : null);
       document.getElementById('full-analysis-link').href = isDemo ? '/analysis?demo=true' : '/analysis';
       showState('report');
-      requestAnimationFrame(() => renderCharts(entries));
+      requestAnimationFrame(() => {
+        renderCharts(entries);
+        renderAura(entries, data);
+      });
     }
 
     let _authToken = null;
@@ -406,6 +636,14 @@
           body: JSON.stringify(isDemo ? {} : {})
         });
         const data = await r.json();
+
+        if (isDemo && DEMO_DATA) {
+          data.week_narrative = data.week_narrative || DEMO_DATA.narrative;
+          data.recurring_patterns = data.recurring_patterns || DEMO_DATA.patterns;
+          data.top_derailers = data.top_derailers || DEMO_DATA.derailers;
+          data.bright_spots = data.bright_spots || DEMO_DATA.bright_spots;
+          data.date_range = DEMO_DATA.label;
+        }
 
         if (data.locked) {
           const dots = document.getElementById('progress-dots');
