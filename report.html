@@ -15,32 +15,29 @@
     .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
 
     /* Weekly Aura Orb */
-    .aura-scene { position: relative; display: flex; align-items: center; justify-content: center; height: 320px; }
+    .aura-scene { position: relative; display: flex; align-items: center; justify-content: center; height: 400px; }
     .aura-ring { position: absolute; border-radius: 50%; background: transparent; border: 1px solid rgba(255,255,255,0.04); animation: auraRingPulse 6s ease-in-out infinite; }
-    .aura-ring-1 { width: 280px; height: 280px; }
-    .aura-ring-2 { width: 230px; height: 230px; border-color: rgba(255,255,255,0.06); animation-delay: -2s; }
+    .aura-ring-1 { width: 340px; height: 340px; }
+    .aura-ring-2 { width: 280px; height: 280px; border-color: rgba(255,255,255,0.06); animation-delay: -2s; }
     .aura-glow { position: absolute; border-radius: 50%; filter: blur(48px); pointer-events: none; top: 50%; left: 50%; }
-    .aura-orb-wrap { width: 180px; height: 180px; position: relative; z-index: 2; animation: auraFloat 5s ease-in-out infinite; }
+    .aura-orb-wrap { width: 200px; height: 200px; position: relative; z-index: 2; animation: auraFloat 5s ease-in-out infinite; }
     .aura-orb {
       width: 100%; height: 100%; border-radius: 50%; position: relative;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.4), inset 0 -12px 32px rgba(0,0,0,0.35);
+      overflow: hidden; background: #0a0a12;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.5), 0 20px 50px rgba(0,0,0,0.3), inset 0 -6px 20px rgba(0,0,0,0.2);
     }
-    .aura-orb::before {
-      content: ''; position: absolute; top: 12%; left: 18%; width: 38%; height: 26%;
-      background: radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.08) 60%, transparent 100%);
-      border-radius: 50%; transform: rotate(-28deg);
+    .orb-blob {
+      position: absolute; border-radius: 50%; pointer-events: none;
     }
-    .aura-orb::after {
-      content: ''; position: absolute; inset: 0; border-radius: 50%; mix-blend-mode: overlay;
-      animation: auraSwirl 14s linear infinite reverse;
-    }
-    .aura-rim { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,0,0,0.3); pointer-events: none; z-index: 3; }
-    @keyframes auraFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
-    @keyframes auraSwirl { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+    .aura-rim { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 24px rgba(0,0,0,0.35), inset 0 0 6px rgba(0,0,0,0.15); pointer-events: none; z-index: 3; }
+    @keyframes auraFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
     @keyframes auraRingPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.04); opacity: 1; } }
-    @keyframes driftG1 { 0%, 100% { transform: translate(-50%,-50%) translate(-35px,25px); } 50% { transform: translate(-50%,-50%) translate(-50px,40px); } }
-    @keyframes driftG2 { 0%, 100% { transform: translate(-50%,-50%) translate(25px,-25px); } 50% { transform: translate(-50%,-50%) translate(40px,-10px); } }
-    @keyframes driftG3 { 0%, 100% { transform: translate(-50%,-50%) translate(-8px,-45px); } 50% { transform: translate(-50%,-50%) translate(8px,-55px); } }
+    @keyframes blobDrift1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(12px, -8px) scale(1.05); } 66% { transform: translate(-6px, 10px) scale(0.97); } }
+    @keyframes blobDrift2 { 0%, 100% { transform: translate(0, 0) scale(1); } 40% { transform: translate(-10px, 12px) scale(1.03); } 70% { transform: translate(8px, -6px) scale(0.95); } }
+    @keyframes blobDrift3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(14px, 6px) scale(1.06); } }
+    @keyframes driftG1 { 0%, 100% { transform: translate(-50%,-50%) translate(-40px,30px); } 50% { transform: translate(-50%,-50%) translate(-55px,45px); } }
+    @keyframes driftG2 { 0%, 100% { transform: translate(-50%,-50%) translate(30px,-30px); } 50% { transform: translate(-50%,-50%) translate(45px,-15px); } }
+    @keyframes driftG3 { 0%, 100% { transform: translate(-50%,-50%) translate(-10px,-50px); } 50% { transform: translate(-50%,-50%) translate(10px,-60px); } }
   </style>
 </head>
 <body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
@@ -221,23 +218,25 @@
       </section>
 
       <!-- Weekly Aura -->
-      <section id="aura-section" class="glass-card rounded-2xl p-6 text-center">
+      <section id="aura-section" class="rounded-2xl p-6 text-center" style="background:rgba(8,8,14,0.85);border:1px solid rgba(255,255,255,0.04);overflow:hidden">
         <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Your Week's Aura</span>
         <p class="text-[10px] text-neutral-500 mt-1">A living snapshot of your week — shaped by sleep, energy, focus, and emotional tone.</p>
         <div class="aura-scene mt-4">
-          <div id="aura-glow-1" class="aura-glow" style="width:160px;height:160px;transform:translate(-50%,-50%) translate(-35px,25px);animation:driftG1 8s ease-in-out infinite"></div>
-          <div id="aura-glow-2" class="aura-glow" style="width:120px;height:120px;transform:translate(-50%,-50%) translate(25px,-25px);animation:driftG2 10s ease-in-out infinite"></div>
-          <div id="aura-glow-3" class="aura-glow" style="width:90px;height:90px;transform:translate(-50%,-50%) translate(-8px,-45px);animation:driftG3 7s ease-in-out infinite"></div>
+          <div id="aura-glow-1" class="aura-glow" style="width:180px;height:180px;transform:translate(-50%,-50%) translate(-40px,30px);animation:driftG1 8s ease-in-out infinite"></div>
+          <div id="aura-glow-2" class="aura-glow" style="width:140px;height:140px;transform:translate(-50%,-50%) translate(30px,-30px);animation:driftG2 10s ease-in-out infinite"></div>
+          <div id="aura-glow-3" class="aura-glow" style="width:100px;height:100px;transform:translate(-50%,-50%) translate(-10px,-50px);animation:driftG3 7s ease-in-out infinite"></div>
           <div class="aura-ring aura-ring-1"></div>
           <div class="aura-ring aura-ring-2"></div>
           <div class="aura-orb-wrap">
             <div id="aura-orb" class="aura-orb">
+              <div id="orb-blobs"></div>
               <div class="aura-rim"></div>
             </div>
           </div>
         </div>
         <p id="aura-label" class="text-sm text-neutral-300 mt-2 font-medium"></p>
         <p id="aura-desc" class="text-xs text-neutral-500 mt-1"></p>
+        <div id="aura-legend" class="mt-5 flex flex-col gap-2 items-center"></div>
         <p class="text-[10px] text-neutral-600 mt-4 italic">"My week looked like this."</p>
       </section>
 
@@ -533,24 +532,23 @@
       const midColor = mix(secondary.rgb, tertiary.rgb, 0.4);
 
       const orbEl = document.getElementById('aura-orb');
-      orbEl.style.background = `radial-gradient(circle at 38% 32%,
-        rgba(255,255,255,0.45) 0%,
-        rgb(${coreColor.join(',')}) 18%,
-        rgb(${midColor.join(',')}) 45%,
-        rgb(${tertiary.rgb.join(',')}) 68%,
-        rgb(${channels[3].rgb.join(',')}) 85%,
-        rgb(${channels[4].rgb.join(',')}) 100%)`;
+      const blobContainer = document.getElementById('orb-blobs');
+      const top3 = channels.slice(0, 3);
 
-      const conicStops = channels.map((ch, i) => {
-        const deg = (i / channels.length) * 360;
-        return `${ch.hex}0.4) ${deg}deg`;
-      });
-      conicStops.push(`${channels[0].hex}0.35) 360deg`);
-      orbEl.style.setProperty('--aura-conic', `conic-gradient(from 0deg, ${conicStops.join(', ')})`);
+      const blobs = [
+        { ch: primary,   x: '15%', y: '10%', w: '75%', h: '70%', blur: 30, opacity: 0.85, blend: 'screen',     anim: 'blobDrift1 8s ease-in-out infinite' },
+        { ch: primary,   x: '30%', y: '25%', w: '55%', h: '55%', blur: 20, opacity: 0.7,  blend: 'normal',     anim: 'blobDrift2 10s ease-in-out infinite' },
+        { ch: secondary, x: '-5%', y: '35%', w: '65%', h: '60%', blur: 28, opacity: 0.75, blend: 'screen',     anim: 'blobDrift3 9s ease-in-out infinite' },
+        { ch: secondary, x: '50%', y: '5%',  w: '55%', h: '50%', blur: 24, opacity: 0.5,  blend: 'overlay',    anim: 'blobDrift1 12s ease-in-out infinite reverse' },
+        { ch: tertiary,  x: '40%', y: '50%', w: '60%', h: '55%', blur: 26, opacity: 0.65, blend: 'screen',     anim: 'blobDrift2 11s ease-in-out infinite' },
+        { ch: tertiary,  x: '-10%',y: '-5%', w: '50%', h: '50%', blur: 22, opacity: 0.4,  blend: 'soft-light', anim: 'blobDrift3 7s ease-in-out infinite reverse' },
+        { ch: primary,   x: '25%', y: '55%', w: '45%', h: '40%', blur: 18, opacity: 0.45, blend: 'hard-light', anim: 'blobDrift1 14s ease-in-out infinite' },
+        { ch: secondary, x: '55%', y: '40%', w: '40%', h: '45%', blur: 20, opacity: 0.35, blend: 'overlay',    anim: 'blobDrift2 13s ease-in-out infinite reverse' },
+      ];
 
-      const afterStyle = document.createElement('style');
-      afterStyle.textContent = `#aura-orb::after { background: conic-gradient(from 0deg, ${conicStops.join(', ')}); }`;
-      document.head.appendChild(afterStyle);
+      blobContainer.innerHTML = blobs.map(b =>
+        `<div class="orb-blob" style="left:${b.x};top:${b.y};width:${b.w};height:${b.h};background:rgb(${b.ch.rgb.join(',')});filter:blur(${b.blur}px);opacity:${b.opacity};mix-blend-mode:${b.blend};animation:${b.anim}"></div>`
+      ).join('');
 
       const g1 = document.getElementById('aura-glow-1');
       const g2 = document.getElementById('aura-glow-2');
@@ -559,12 +557,11 @@
       g2.style.background = `${secondary.hex}0.28)`;
       g3.style.background = `${tertiary.hex}0.2)`;
 
-      orbEl.style.boxShadow = `0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.4), 0 0 80px ${primary.hex}0.18), inset 0 -12px 32px rgba(0,0,0,0.35)`;
+      orbEl.style.boxShadow = `0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.5), 0 20px 50px rgba(0,0,0,0.3), 0 0 60px ${primary.hex}0.18), inset 0 -6px 20px rgba(0,0,0,0.2)`;
 
       const labelEl = document.getElementById('aura-label');
       const descEl = document.getElementById('aura-desc');
-      const moods = channels.filter(c => c.w > 0.15).map(c => c.label);
-      labelEl.textContent = moods.length ? moods.join(' + ') : primary.label;
+      labelEl.textContent = top3.map(c => c.label).join(' + ');
 
       const descriptions = {
         'Calm': 'Stable sleep and balanced routines created a grounded week.',
@@ -574,6 +571,20 @@
         'Fatigue': 'Low reserves this week. Rest and recharge are key.'
       };
       descEl.textContent = descriptions[primary.label] || '';
+
+      const legendEl = document.getElementById('aura-legend');
+      const top3Sum = top3.reduce((s, c) => s + c.w, 0);
+      legendEl.innerHTML = top3.map(ch => {
+        const pct = Math.round((ch.w / top3Sum) * 100);
+        return `<div class="flex items-center gap-3 w-full max-w-[260px]">
+          <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:rgb(${ch.rgb.join(',')})"></div>
+          <span class="text-[11px] text-neutral-400 w-[60px] text-left">${ch.label}</span>
+          <div class="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+            <div class="h-full rounded-full" style="width:${pct}%;background:rgb(${ch.rgb.join(',')});opacity:0.7;transition:width .6s"></div>
+          </div>
+          <span class="text-[11px] text-neutral-500 w-[32px] text-right tabular-nums">${pct}%</span>
+        </div>`;
+      }).join('');
     }
 
     function renderReport(data) {
