@@ -3,11 +3,10 @@ Vercel serverless: GET /api/entries — list user's entries for history/analysis
 Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
 import json
-import os
 from http.server import BaseHTTPRequestHandler
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_URL = __import__("os").environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = __import__("os").environ.get("SUPABASE_SERVICE_ROLE_KEY") or __import__("os").environ.get("SUPABASE_ANON_KEY", "")
 
 
 def get_supabase():

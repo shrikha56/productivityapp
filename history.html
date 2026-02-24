@@ -70,6 +70,10 @@
         const data = json.data || [];
         const list = document.getElementById('list');
         const empty = document.getElementById('empty');
+        if (!resp.ok) {
+          empty.textContent = json.error || 'Failed to load entries. Try refreshing.';
+          return;
+        }
         if (!data || data.length === 0) return;
         empty.classList.add('hidden');
 
