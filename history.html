@@ -77,21 +77,21 @@
         if (!data || data.length === 0) return;
         empty.classList.add('hidden');
 
-        const count = data.length;
+        const uniqueDays = new Set(data.map(e => e.date)).size;
         const badge = document.getElementById('streak-badge');
         const dots = document.getElementById('streak-dots');
         badge.classList.remove('hidden');
         for (let i = 0; i < 7; i++) {
           const d = document.createElement('div');
-          d.className = i < count
+          d.className = i < uniqueDays
             ? 'w-1.5 h-1.5 rounded-full bg-white/80'
             : 'w-1.5 h-1.5 rounded-full bg-white/15';
           dots.appendChild(d);
         }
         document.getElementById('streak-text').textContent =
-          count >= 7 ? count + ' entries' : count + '/7';
+          uniqueDays >= 7 ? uniqueDays + ' days' : uniqueDays + '/7';
 
-        if (count >= 7) {
+        if (uniqueDays >= 7) {
           document.getElementById('report-banner').classList.remove('hidden');
         }
 
