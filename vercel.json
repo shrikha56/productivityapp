@@ -4,6 +4,7 @@
     { "source": "/analysis", "destination": "/analysis.html" },
     { "source": "/report/weekly", "destination": "/report.html" },
     { "source": "/history", "destination": "/history.html" },
+    { "source": "/css/(.*)", "destination": "/css/$1" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

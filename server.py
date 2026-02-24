@@ -49,6 +49,17 @@ def history():
     return send_from_directory(".", "history.html")
 
 
+@app.route("/login")
+def login():
+    from flask import redirect
+    return redirect("/", code=302)
+
+
+@app.route("/css/<path:filename>")
+def serve_css(filename):
+    return send_from_directory("css", filename)
+
+
 @app.route("/api/join", methods=["POST"])
 def join():
     data = request.get_json(force=True, silent=True) or {}
