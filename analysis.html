@@ -66,7 +66,7 @@
       <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
       <a href="/analysis" class="text-xs font-medium text-white transition-colors">Analysis</a>
       <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
-      <a href="/report" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Report</a>
+      <a id="nav-report-link" href="/report/weekly" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Report</a>
       <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
     </div>
   </nav>
@@ -212,7 +212,7 @@
 
       <div class="mt-8 flex flex-wrap gap-3">
         <a href="/checkin" class="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">New check-in</a>
-        <a href="/report" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">Weekly report</a>
+        <a id="report-link" href="/report/weekly" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">Weekly report</a>
       </div>
     </div>
   </main>
@@ -221,13 +221,37 @@
   <script>
   (function() {
     const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
+    const isDemo = new URLSearchParams(location.search).has('demo');
+
+    const DEMO_ENTRIES = [
+      {date:'2026-02-17',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
+      {date:'2026-02-18',sleep_hours:7.5,sleep_quality:3,energy:3,deep_work_blocks:1},
+      {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:2},
+      {date:'2026-02-20',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
+      {date:'2026-02-21',sleep_hours:8,sleep_quality:4,energy:3,deep_work_blocks:1},
+      {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2},
+      {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:3,deep_work_blocks:1}
+    ];
+
+    let chartData = [];
 
     document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
 
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { window.location.href = '/login'; return; }
-      loadData(session.access_token);
-    });
+    if (isDemo) {
+      document.getElementById('loading').classList.add('hidden');
+      chartData = DEMO_ENTRIES.slice().sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      document.getElementById('dashboard').classList.remove('hidden');
+      document.getElementById('report-link').href = '/report/weekly?demo=true';
+      document.getElementById('nav-report-link').href = '/report/weekly?demo=true';
+      document.querySelector('header h1').textContent = 'Analysis';
+      document.querySelector('header p').textContent = 'Demo: sample performance metrics.';
+      requestAnimationFrame(() => renderAll());
+    } else {
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session) { window.location.href = '/login'; return; }
+        loadData(session.access_token);
+      });
+    }
 
     function byDateFirstEntry(entries) {
       const byDate = {};
@@ -242,8 +266,6 @@
       if (!e) return 0;
       return Math.round(((e.sleep_quality || 3) / 5) * 35 + Math.min((e.sleep_hours || 0) / 8, 1) * 25 + ((e.energy || 3) / 5) * 25 + ((e.deep_work_blocks || 0) / 5) * 15);
     }
-
-    let chartData = [];
 
     async function loadData(token) {
       try {

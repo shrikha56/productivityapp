@@ -58,14 +58,15 @@ DAILY ENTRIES:
 {digest[:6000]}
 
 RULES:
-1. Ground every insight in observable patterns from the data. No generic advice.
-2. Identify RECURRING themes — what appeared 2+ times across the week.
-3. Be specific: cite actual days, behaviors, and numbers.
-4. Tone: Analytical, precise, non-emotional.
+1. QUANTIFY everything. Never say "sleep impacted productivity." Instead: "When sleep quality was ≥4/5, deep work output doubled (2 blocks vs 0–1 on low-sleep days)." Cite exact numbers and thresholds.
+2. Identify RECURRING themes — what appeared 2+ times. Cite specific dates (e.g., Feb 19, 22).
+3. Avoid obvious statements. Go beyond "sleep affects energy." Show the causal chain with numbers.
+4. Tone: Analytical, precise, non-emotional. Signal must feel like insight, not generic advice.
+5. For each pattern, assign confidence: Strong correlation (clear cause→effect across 3+ days), Moderate (2 days or partial), Emerging (1–2 instances, worth watching).
 
 Return valid JSON only. No markdown. Structure:
 {{
-  "week_narrative": "3-5 sentence overview of the week's performance arc. Cite specific patterns and inflection points.",
+  "week_narrative": "3-5 sentence overview. Cite specific dates and inflection points. Include recovery lag if visible (e.g., 'Sleep deprivation showed a 24-hour recovery window before output normalized').",
   "metrics": {{
     "avg_sleep": {avg_sleep},
     "avg_sleep_quality": {avg_quality},
@@ -74,22 +75,23 @@ Return valid JSON only. No markdown. Structure:
     "entries_count": {n}
   }},
   "recurring_patterns": [
-    "Pattern 1: description with evidence from multiple days",
-    "Pattern 2: description with evidence from multiple days",
-    "Pattern 3: description with evidence from multiple days"
+    "[Strong correlation] When sleep quality ≥4/5, deep work doubled (2 blocks vs 0–1). Feb 19, 22.",
+    "[Moderate correlation] Phone restriction → output. Evidence: Feb 19, 22.",
+    "[Emerging] Post-lunch crashes on Feb 18, 20 — worth tracking."
   ],
+  "recovery_lag": "Optional: How long did poor sleep/stress affect output? e.g., '24-hour recovery window' or '48-hour lag before energy normalized'. Omit if not discernible.",
   "top_derailers": [
-    "Derailer 1: what repeatedly hurt performance, with specific days/evidence",
-    "Derailer 2: what repeatedly hurt performance, with specific days/evidence"
+    "Derailer with numbers: e.g., 'Sleep <6h on Feb 17, 20 → 0 deep work blocks both days vs 2 blocks when ≥7h'",
+    "Second derailer with specific days and quantified impact"
   ],
   "bright_spots": [
-    "What went well this week — specific days and behaviors that produced good output"
+    "Quantified: e.g., 'Feb 22: 7.5h sleep, 4/5 quality → 2 deep work blocks, highest energy day'"
   ],
   "weekly_experiment": {{
-    "focus": "The ONE thing to focus on next week based on the biggest recurring pattern",
+    "focus": "The ONE thing to focus on based on strongest quantified pattern",
     "protocol": "Specific daily action with timing and measurement",
     "mechanism": "Why this targets the root cause",
-    "success_metric": "How to know if it's working by end of next week"
+    "success_metric": "Quantified: e.g., '4/5 sleep quality on 5 of 7 days' or '2+ deep work blocks on 4 days'"
   }},
   "micro_shifts": [
     "2-3 small daily adjustments that support the main experiment"
@@ -207,6 +209,12 @@ class handler(BaseHTTPRequestHandler):
             self._send(503, report)
             return
 
+        by_date = {}
+        for e in entries[:14]:
+            d = e.get("date")
+            if d and (d not in by_date or e.get("entry_number") == 1):
+                by_date[d] = e
+        report["entries"] = [by_date[d] for d in sorted(by_date.keys())]
         self._send(200, report)
 
     def _send(self, status, body):

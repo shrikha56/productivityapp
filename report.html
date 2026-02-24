@@ -7,12 +7,19 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/signal.css?v=3">
+  <style>
+    svg.chart { display: block; width: 100%; overflow: visible; min-height: 100px; }
+    #report-line-svg { min-height: 140px; }
+    #report-multi-svg { min-height: 100px; }
+    .bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+  </style>
 </head>
 <body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
   <div class="noise-bg"></div>
   <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
 
-  <nav class="relative z-10 w-full max-w-2xl mx-auto px-6 py-6 flex justify-between items-center">
+  <nav class="relative z-10 w-full max-w-3xl mx-auto px-6 py-6 flex justify-between items-center">
     <a href="/" class="flex items-center gap-2">
       <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black rounded-full"></div></div>
       <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
@@ -20,12 +27,13 @@
     <div class="flex items-center gap-4">
       <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
       <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
+      <a href="/report/weekly" class="text-xs font-medium text-white transition-colors">Report</a>
       <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
       <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
     </div>
   </nav>
 
-  <main class="relative z-10 max-w-2xl mx-auto px-6 pb-24">
+  <main class="relative z-10 max-w-3xl mx-auto px-6 pb-24">
     <!-- Locked state -->
     <div id="locked" class="glass-card rounded-2xl p-8 text-center">
       <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
@@ -35,7 +43,10 @@
       <p class="text-sm text-neutral-400 mb-2">Complete 7 daily check-ins to unlock your weekly pattern report.</p>
       <div class="flex justify-center gap-1.5 my-4" id="progress-dots"></div>
       <p id="progress-text" class="text-xs text-neutral-500 mb-4"></p>
-      <a href="/checkin" class="inline-block px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Go to check-in</a>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="/checkin" class="inline-block px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Go to check-in</a>
+        <a href="/report/weekly?demo=true" class="inline-block px-4 py-2 rounded-lg border border-white/20 text-sm text-neutral-400 hover:text-white transition-colors">View demo report</a>
+      </div>
     </div>
 
     <!-- Loading state -->
@@ -53,7 +64,10 @@
     <!-- Report content -->
     <div id="report" class="hidden space-y-6">
       <header class="mb-2">
-        <h1 class="text-2xl font-medium text-white tracking-tight">Weekly Report</h1>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-medium text-white tracking-tight">Weekly Report</h1>
+          <span id="demo-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">Demo</span>
+        </div>
         <p id="report-range" class="text-xs text-neutral-500 mt-1"></p>
       </header>
 
@@ -77,10 +91,44 @@
         </div>
       </div>
 
+      <!-- Analysis dashboard -->
+      <section class="glass-card rounded-2xl p-6" id="analysis-dashboard">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week at a Glance</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          <div>
+            <p class="text-xs text-neutral-500 mb-3">Performance Score</p>
+            <p class="text-[10px] text-neutral-600 mb-2">Combined score from sleep hours, quality, energy & deep work blocks</p>
+            <div class="relative">
+              <svg id="report-line-svg" class="chart" height="140" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
+            </div>
+            <div id="report-x-labels" class="flex justify-between mt-2"></div>
+          </div>
+          <div>
+            <p class="text-xs text-neutral-500 mb-3">Daily Trend</p>
+            <div id="report-week-bars" class="space-y-2"></div>
+            <p class="text-[10px] text-neutral-600 mt-2">Bar length = performance score (0–100) from sleep, energy, quality & deep work</p>
+          </div>
+        </div>
+        <div class="mt-6">
+          <p class="text-xs text-neutral-500 mb-3">Sleep & Energy</p>
+          <div class="flex gap-4 text-[10px] text-neutral-500 mb-2">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 rounded bg-white/40"></span>Sleep (h)</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 rounded bg-yellow-400/50"></span>Energy</span>
+          </div>
+          <svg id="report-multi-svg" class="chart" height="100" viewBox="0 0 700 100" preserveAspectRatio="none"></svg>
+        </div>
+      </section>
+
       <!-- Week narrative -->
       <section class="glass-card rounded-2xl p-6">
         <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week Overview</span>
         <p id="narrative" class="text-sm text-neutral-200 mt-3 whitespace-pre-line leading-relaxed"></p>
+      </section>
+
+      <!-- Recovery lag (optional) -->
+      <section id="recovery-lag-section" class="hidden glass-card rounded-2xl p-6 border border-amber-500/10">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-amber-400/80">Recovery Insight</span>
+        <p id="recovery-lag" class="text-sm text-neutral-200 mt-3"></p>
       </section>
 
       <!-- Recurring patterns -->
@@ -133,6 +181,7 @@
 
       <div class="flex flex-wrap gap-3 pt-2">
         <a href="/checkin" class="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">New check-in</a>
+        <a id="full-analysis-link" href="/analysis" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">Full analysis</a>
         <a href="/history" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">View history</a>
       </div>
     </div>
@@ -143,6 +192,16 @@
     (function() {
     const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
     const isDemo = new URLSearchParams(location.search).has('demo');
+
+    const DEMO_ENTRIES = [
+      {date:'2026-02-17',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
+      {date:'2026-02-18',sleep_hours:7.5,sleep_quality:3,energy:3,deep_work_blocks:1},
+      {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:2},
+      {date:'2026-02-20',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
+      {date:'2026-02-21',sleep_hours:8,sleep_quality:4,energy:3,deep_work_blocks:1},
+      {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2},
+      {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:3,deep_work_blocks:1}
+    ];
 
     if (!isDemo) {
       sb.auth.getSession().then(({ data: { session } }) => {
@@ -172,7 +231,82 @@
       });
     }
 
+    function computeScore(e) {
+      if (!e) return 0;
+      return Math.round(((e.sleep_quality || 3) / 5) * 35 + Math.min((e.sleep_hours || 0) / 8, 1) * 25 + ((e.energy || 3) / 5) * 25 + ((e.deep_work_blocks || 0) / 5) * 15);
+    }
+
+    function renderCharts(entries) {
+      if (!entries || entries.length < 2) return;
+      const slice = entries.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      // Performance line chart
+      const scores = slice.map(computeScore);
+      const labels = slice.map(e => {
+        const d = new Date((e.date || '') + 'T12:00:00');
+        return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] || e.date?.slice(5) || '';
+      });
+      const W = 600, H = 140, pad = { top: 8, right: 10, bottom: 20, left: 24 };
+      const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
+      const xStep = slice.length > 1 ? iW / (scores.length - 1) : iW;
+      const px = i => pad.left + i * xStep;
+      const py = v => pad.top + iH - (v / 100) * iH;
+      let pathD = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
+      let areaD = pathD + ` L${px(scores.length - 1)},${pad.top + iH} L${px(0)},${pad.top + iH} Z`;
+      document.getElementById('report-line-svg').innerHTML = `
+        <defs><linearGradient id="report-line-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="white" stop-opacity="0.12"/><stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path d="${areaD}" fill="url(#report-line-grad)"/>
+        <path d="${pathD}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        ${scores.map((v, i) => `<circle cx="${px(i)}" cy="${py(v)}" r="3" fill="white" stroke="#050505" stroke-width="1"/>`).join('')}
+      `;
+      document.getElementById('report-x-labels').innerHTML = labels.map(l =>
+        `<span class="text-[9px] text-neutral-600">${l}</span>`
+      ).join('');
+
+      // Daily trend bars
+      const dayL = ['S','M','T','W','T','F','S'];
+      const el = document.getElementById('report-week-bars');
+      el.innerHTML = slice.map(e => {
+        const score = computeScore(e);
+        const label = dayL[new Date((e.date || '') + 'T12:00:00').getDay()];
+        return `<div class="flex items-center gap-2">
+          <span class="text-[10px] text-neutral-600 w-3 text-center">${label}</span>
+          <div class="flex-1 h-1.5 rounded bg-white/5 overflow-hidden">
+            <div class="h-full rounded bg-white/30" style="width:${score}%;transition:width .6s"></div>
+          </div>
+          <span class="text-[10px] text-neutral-500 w-5 text-right tabular-nums">${score}</span>
+        </div>`;
+      }).join('');
+
+      // Sleep & Energy dual chart
+      const sleepV = slice.map(e => Math.min(10, e.sleep_hours ?? 0));
+      const energyV = slice.map(e => ((e.energy ?? 3) / 5) * 10);
+      const W2 = 700, H2 = 100, pad2 = { left: 28, right: 10, top: 6, bottom: 12 };
+      const iW2 = W2 - pad2.left - pad2.right, iH2 = H2 - pad2.top - pad2.bottom;
+      const xStep2 = slice.length > 1 ? iW2 / (slice.length - 1) : iW2;
+      const px2 = i => pad2.left + i * xStep2;
+      const py2 = v => pad2.top + iH2 - (v / 10) * iH2;
+      const sPath = sleepV.map((v, i) => `${i ? 'L' : 'M'}${px2(i)},${py2(v)}`).join(' ');
+      const ePath = energyV.map((v, i) => `${i ? 'L' : 'M'}${px2(i)},${py2(v)}`).join(' ');
+      document.getElementById('report-multi-svg').innerHTML = `
+        <defs>
+          <linearGradient id="report-sleep-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="white" stop-opacity="0.1"/><stop offset="100%" stop-color="white" stop-opacity="0"/></linearGradient>
+          <linearGradient id="report-energy-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#eab308" stop-opacity="0.1"/><stop offset="100%" stop-color="#eab308" stop-opacity="0"/></linearGradient>
+        </defs>
+        <path d="${sPath} L${px2(slice.length-1)},${H2-pad2.bottom} L${px2(0)},${H2-pad2.bottom} Z" fill="url(#report-sleep-grad)"/>
+        <path d="${ePath} L${px2(slice.length-1)},${H2-pad2.bottom} L${px2(0)},${H2-pad2.bottom} Z" fill="url(#report-energy-grad)"/>
+        <path d="${sPath}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="${ePath}" fill="none" stroke="rgba(234,179,8,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+        ${sleepV.map((v, i) => `<circle cx="${px2(i)}" cy="${py2(v)}" r="2" fill="white" stroke="#050505" stroke-width="1"/>`).join('')}
+        ${energyV.map((v, i) => `<circle cx="${px2(i)}" cy="${py2(v)}" r="2" fill="#eab308" stroke="#050505" stroke-width="1"/>`).join('')}
+      `;
+    }
+
     function renderReport(data) {
+      document.getElementById('demo-badge').classList.toggle('hidden', !isDemo);
+      document.getElementById('report-range').textContent = isDemo ? 'Feb 17–23, 2026 (sample data)' : (data.date_range || '');
       const m = data.metrics || {};
       document.getElementById('m-sleep').textContent = (m.avg_sleep || '—') + 'h';
       document.getElementById('m-quality').textContent = (m.avg_sleep_quality || '—') + '/5';
@@ -180,6 +314,15 @@
       document.getElementById('m-blocks').textContent = m.total_deep_work || '0';
 
       document.getElementById('narrative').textContent = data.week_narrative || '—';
+
+      const recoveryLag = (data.recovery_lag || '').trim();
+      const recoverySection = document.getElementById('recovery-lag-section');
+      if (recoveryLag) {
+        recoverySection.classList.remove('hidden');
+        document.getElementById('recovery-lag').textContent = recoveryLag;
+      } else {
+        recoverySection.classList.add('hidden');
+      }
 
       renderList('patterns', data.recurring_patterns, 'text-neutral-200');
       renderList('derailers', data.top_derailers, 'text-red-200/80');
@@ -199,20 +342,23 @@
         document.getElementById('exp-metric').textContent = exp.success_metric || '—';
       }
 
+      const entries = data.entries && data.entries.length ? data.entries : (isDemo ? DEMO_ENTRIES : null);
+      document.getElementById('full-analysis-link').href = isDemo ? '/analysis?demo=true' : '/analysis';
       showState('report');
+      requestAnimationFrame(() => renderCharts(entries));
     }
 
     let _authToken = null;
     async function fetchReport(userId) {
       showState('loading');
       try {
-        const payload = isDemo ? { demo: true } : {};
+        const url = isDemo ? '/api/weekly-report-demo' : '/api/weekly-report';
         const headers = { 'Content-Type': 'application/json' };
         if (_authToken) headers['Authorization'] = 'Bearer ' + _authToken;
-        const r = await fetch('/api/weekly-report', {
+        const r = await fetch(url, {
           method: 'POST',
           headers,
-          body: JSON.stringify(payload)
+          body: JSON.stringify(isDemo ? {} : {})
         });
         const data = await r.json();
 

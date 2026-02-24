@@ -29,6 +29,15 @@ Add these redirect URLs as well:
 - `https://signal-au.com`
 - `https://signal-au.com/auth/callback`
 
+## 4. RLS + encryption hardening
+
+Run `supabase-rls-encryption.sql` in **SQL Editor** to:
+
+- Enforce Row Level Security so users only access their own entries
+- Revoke `anon` access to `entries` (API uses `service_role`)
+- Add data validation constraints
+- Ensure `transcript` and `reflection_summary` are encrypted in app code before insert — the DB stores ciphertext
+
 ## Troubleshooting
 
 - **"Invalid redirect URL"** — The URL in Redirect URLs must match exactly (no trailing slash, correct port).
