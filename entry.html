@@ -88,7 +88,7 @@
         const isPendingAnalysis = drivers.length === 1 && drivers[0] === 'Analysis pending';
         const isFinalForDay = data.is_final_for_day !== false;
         let summaryText = (data.reflection_summary || data.transcript || '').trim();
-        if (!summaryText || summaryText.startsWith('gAAAAA')) summaryText = data.transcript || '—';
+        if (!summaryText || summaryText.startsWith('gAAAAA')) summaryText = (data.transcript || '').trim();
         if (!summaryText || summaryText.startsWith('gAAAAA')) summaryText = '—';
         document.getElementById('summary').textContent = summaryText;
         const showAnalysisSections = !isPendingAnalysis && isFinalForDay;
