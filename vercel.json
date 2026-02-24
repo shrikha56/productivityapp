@@ -1,36 +1,9 @@
 {
   "rewrites": [
-    {
-      "source": "/auth/callback",
-      "destination": "/auth-callback.html"
-    },
-    {
-      "source": "/signup",
-      "destination": "/signup.html"
-    },
-    {
-      "source": "/login",
-      "destination": "/login.html"
-    },
-    {
-      "source": "/checkin",
-      "destination": "/checkin.html"
-    },
-    {
-      "source": "/entry",
-      "destination": "/entry.html"
-    },
-    {
-      "source": "/history",
-      "destination": "/history.html"
-    },
-    {
-      "source": "/report/weekly",
-      "destination": "/report.html"
-    },
-    {
-      "source": "/analysis",
-      "destination": "/analysis.html"
-    }
+    { "source": "/checkin", "destination": "/checkin.html" },
+    { "source": "/analysis", "destination": "/analysis.html" },
+    { "source": "/report/weekly", "destination": "/report.html" },
+    { "source": "/history", "destination": "/history.html" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

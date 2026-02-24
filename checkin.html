@@ -20,6 +20,7 @@
     </a>
     <div class="flex items-center gap-4">
       <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
+      <a href="/report/weekly" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Report</a>
       <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
       <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
     </div>
@@ -88,6 +89,18 @@
           <div class="flex gap-2 mb-4">
             <button type="button" id="tab-voice" class="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium">Voice</button>
             <button type="button" id="tab-type" class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors">Type</button>
+          </div>
+
+          <p class="text-xs text-neutral-500 mb-3">How did you sleep? What are you feeling? What did you attempt?</p>
+          <div id="quick-chips" class="flex flex-wrap gap-2 mb-4">
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">poor sleep</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">snacking</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">stomach pain</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">low energy</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">anxious</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">unfocused</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">good sleep</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors">productive</button>
           </div>
 
           <!-- Type mode -->
@@ -241,6 +254,30 @@
     const TAB_ACTIVE = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
     const TAB_INACTIVE = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
 
+    const CHIP_WORDS = ['poor sleep','snacking','stomach pain','low energy','anxious','unfocused','good sleep','productive'];
+    function updateChipSelection() {
+      const text = document.getElementById('transcript-input').value.toLowerCase();
+      document.querySelectorAll('.chip-btn').forEach(btn => {
+        const word = btn.textContent.trim().toLowerCase();
+        const selected = text.includes(word);
+        btn.classList.toggle('bg-white/15', selected);
+        btn.classList.toggle('text-white', selected);
+        btn.classList.toggle('border-white/30', selected);
+        btn.classList.toggle('bg-white/5', !selected);
+        btn.classList.toggle('text-neutral-400', !selected);
+      });
+    }
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.onclick = () => {
+        const ta = document.getElementById('transcript-input');
+        const add = btn.textContent.trim();
+        const cur = ta.value.trim();
+        ta.value = cur ? cur + '. ' + add : add;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        updateChipSelection();
+      };
+    });
+
     document.getElementById('tab-type').onclick = () => {
       document.getElementById('type-area').classList.remove('hidden');
       document.getElementById('voice-area').classList.add('hidden');
@@ -296,6 +333,7 @@
     document.getElementById('transcript-input').addEventListener('input', (e) => {
       const text = e.target.value.trim();
       document.getElementById('live-preview').textContent = text ? text + '…' : '';
+      if (typeof updateChipSelection === 'function') updateChipSelection();
       const el = document.getElementById('clarify-questions');
       const label = document.getElementById('clarify-label');
       if (clarifyAbort) clarifyAbort.abort();
@@ -540,6 +578,7 @@
       prev.classList.remove('hidden');
       document.getElementById('voice-preview').textContent = full.slice(0, 120) + (full.length > 120 ? '…' : '');
       showPostRecordUI();
+      if (typeof updateChipSelection === 'function') updateChipSelection();
 
       // Trigger clarifying questions
       const vcArea = document.getElementById('voice-clarify-area');
