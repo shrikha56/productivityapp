@@ -4,6 +4,9 @@
     { "source": "/analysis", "destination": "/analysis.html" },
     { "source": "/report/weekly", "destination": "/report.html" },
     { "source": "/history", "destination": "/history.html" },
-    { "source": "/((?!api/)(?!css/).*)", "destination": "/index.html" }
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/signup", "destination": "/signup.html" },
+    { "source": "/entry", "destination": "/entry.html" },
+    { "source": "/auth-callback", "destination": "/auth-callback.html" }
   ]
 }
