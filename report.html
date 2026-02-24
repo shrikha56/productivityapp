@@ -19,6 +19,7 @@
     </a>
     <div class="flex items-center gap-4">
       <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
+      <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
       <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
       <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
     </div>
@@ -201,13 +202,16 @@
       showState('report');
     }
 
+    let _authToken = null;
     async function fetchReport(userId) {
       showState('loading');
       try {
-        const payload = isDemo ? { demo: true } : { user_id: userId };
+        const payload = isDemo ? { demo: true } : {};
+        const headers = { 'Content-Type': 'application/json' };
+        if (_authToken) headers['Authorization'] = 'Bearer ' + _authToken;
         const r = await fetch('/api/weekly-report', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload)
         });
         const data = await r.json();
@@ -249,10 +253,11 @@
     if (isDemo) {
       fetchReport('demo');
     } else {
-      sb.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
-        currentUserId = user.id;
-        fetchReport(user.id);
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session) { window.location.href = '/login'; return; }
+        _authToken = session.access_token;
+        currentUserId = session.user.id;
+        fetchReport(session.user.id);
       });
     }
     })();

@@ -19,6 +19,7 @@
       <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
     </a>
     <div class="flex items-center gap-4">
+      <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
       <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
       <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
     </div>
@@ -31,8 +32,8 @@
     </header>
 
     <form id="checkin-form" class="space-y-8">
-      <!-- 3 Daily Anchors -->
-      <section class="glass-card rounded-2xl p-6">
+      <!-- 3 Daily Anchors (hidden for follow-up entries) -->
+      <section id="anchors-section" class="glass-card rounded-2xl p-6">
         <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-6">3 Daily Anchors</h2>
         <div class="space-y-6">
           <div>
@@ -57,23 +58,24 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-white mb-2">3. Deep Work</label>
-            <p class="text-[10px] text-neutral-500 mb-2">45–90 minutes of focused work on your most important task.</p>
-            <div class="flex gap-2">
-              <label class="flex-1 cursor-pointer">
-                <input type="radio" name="deep_work_blocks" value="0" class="sr-only peer">
-                <span class="block py-2.5 rounded-lg border border-white/10 bg-white/5 text-center text-sm text-neutral-400 peer-checked:border-white/30 peer-checked:bg-white/10 peer-checked:text-white">0 blocks</span>
-              </label>
-              <label class="flex-1 cursor-pointer">
-                <input type="radio" name="deep_work_blocks" value="1" class="sr-only peer" checked>
-                <span class="block py-2.5 rounded-lg border border-white/10 bg-white/5 text-center text-sm text-neutral-400 peer-checked:border-white/30 peer-checked:bg-white/10 peer-checked:text-white">1 block</span>
-              </label>
-              <label class="flex-1 cursor-pointer">
-                <input type="radio" name="deep_work_blocks" value="2" class="sr-only peer">
-                <span class="block py-2.5 rounded-lg border border-white/10 bg-white/5 text-center text-sm text-neutral-400 peer-checked:border-white/30 peer-checked:bg-white/10 peer-checked:text-white">2+ blocks</span>
-              </label>
+            <p class="text-[10px] text-neutral-500 mb-2">45–90 min focused sessions on your most important task.</p>
+            <input type="range" name="deep_work_blocks" min="0" max="5" value="1" class="w-full accent-white/80">
+            <div class="flex justify-between text-xs text-neutral-500 mt-1">
+              <span>0</span>
+              <span id="deep-work-val" class="text-neutral-400">1 block</span>
+              <span>5</span>
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- Follow-up banner (shown when adding second+ entry of the day) -->
+      <section id="followup-banner" class="hidden glass-card rounded-2xl p-5">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-2 h-2 rounded-full bg-white/60"></div>
+          <h2 class="text-sm font-medium text-white">Follow-up entry</h2>
+        </div>
+        <p class="text-xs text-neutral-400">Your sleep, energy, and deep work are already logged for today. Just reflect on what happened since your last check-in.</p>
       </section>
 
       <!-- Reflection - Voice Assistant UI -->
@@ -141,14 +143,26 @@
     </form>
   </main>
 
-  <!-- Overwrite confirmation modal -->
-  <div id="overwrite-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+  <!-- Plan more reflections modal (initial entry only) -->
+  <div id="plan-more-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
     <div class="voice-card max-w-sm w-full rounded-2xl p-6 shadow-xl">
-      <h3 class="text-sm font-medium text-white mb-2">Entry already exists</h3>
-      <p class="text-sm text-neutral-400 mb-6">You already have an entry for today. Overwrite it with your new submission?</p>
+      <h3 class="text-sm font-medium text-white mb-2">Multiple reflections today?</h3>
+      <p class="text-sm text-neutral-400 mb-6">If you plan to add more reflections later, we'll wait to generate your analysis until you're done. This ensures the report is based on your full day.</p>
       <div class="flex gap-3">
-        <button type="button" id="overwrite-cancel" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">Cancel</button>
-        <button type="button" id="overwrite-confirm" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors">Overwrite</button>
+        <button type="button" id="plan-more-no" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors">No, this is it</button>
+        <button type="button" id="plan-more-yes" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">Yes, I'll add more</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Is last reflection modal (follow-up only) -->
+  <div id="last-reflection-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="voice-card max-w-sm w-full rounded-2xl p-6 shadow-xl">
+      <h3 class="text-sm font-medium text-white mb-2">Last reflection for today?</h3>
+      <p class="text-sm text-neutral-400 mb-6">Generate your report now using all your reflections from today (including this one)?</p>
+      <div class="flex gap-3">
+        <button type="button" id="last-no" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">No, I'll add more</button>
+        <button type="button" id="last-yes" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors">Yes, generate report</button>
       </div>
     </div>
   </div>
@@ -171,8 +185,21 @@
     (function() {
     const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
 
+    let _authToken = null;
+    async function getAuthHeaders() {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.access_token) _authToken = session.access_token;
+      return _authToken ? { 'Authorization': 'Bearer ' + _authToken } : {};
+    }
+    async function authFetch(url, opts = {}) {
+      const ah = await getAuthHeaders();
+      opts.headers = { ...(opts.headers || {}), ...ah };
+      return fetch(url, opts);
+    }
+
     sb.auth.getSession().then(({ data: { session } }) => {
       if (!session) window.location.href = '/login';
+      if (session?.access_token) _authToken = session.access_token;
     });
     fetch('/api/test-gpt').then(r => r.json()).then(d => {
       if (!d.ok) {
@@ -186,8 +213,26 @@
 
     document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
 
+    let isFollowUp = false;
+    (async () => {
+      try {
+        const ah = await getAuthHeaders();
+        const resp = await fetch('/api/entries/today', { headers: ah });
+        const json = await resp.json();
+        if (json.count > 0) {
+          isFollowUp = true;
+          document.getElementById('anchors-section').classList.add('hidden');
+          document.getElementById('followup-banner').classList.remove('hidden');
+          document.querySelector('[name="sleep_hours"]').removeAttribute('required');
+          document.getElementById('day-label').textContent = 'Entry ' + (json.count + 1) + ' today';
+          document.getElementById('generate-btn').textContent = "Add Follow-up";
+        }
+      } catch(e) { console.error('Failed to check today entries', e); }
+    })();
+
     document.querySelector('[name="sleep_quality"]').oninput = (e) => { document.getElementById('sleep-quality-val').textContent = e.target.value; };
     document.querySelector('[name="energy"]').oninput = (e) => { document.getElementById('energy-val').textContent = e.target.value; };
+    document.querySelector('[name="deep_work_blocks"]').oninput = (e) => { document.getElementById('deep-work-val').textContent = e.target.value + (e.target.value === '1' ? ' block' : ' blocks'); };
 
     const TAB_ACTIVE = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
     const TAB_INACTIVE = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
@@ -268,7 +313,7 @@
         clarifyHint.textContent = 'Getting AI questions…';
         clarifyHint.classList.remove('hidden');
         try {
-          const r = await fetch('/api/clarify', {
+          const r = await authFetch('/api/clarify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text }),
@@ -292,32 +337,6 @@
       }, 280);
     });
 
-
-    let pendingOverwritePayload = null;
-    const modal = document.getElementById('overwrite-modal');
-    document.getElementById('overwrite-cancel').onclick = () => {
-      modal.classList.add('hidden');
-      pendingOverwritePayload = null;
-    };
-    document.getElementById('overwrite-confirm').onclick = async () => {
-      if (!pendingOverwritePayload) return;
-      const btn = document.getElementById('overwrite-confirm');
-      btn.disabled = true;
-      btn.textContent = 'Overwriting…';
-      pendingOverwritePayload.overwrite = true;
-      modal.classList.add('hidden');
-      try {
-        const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pendingOverwritePayload) });
-        const res = await r.json();
-        if (res.entry_id) window.location.href = '/entry?id=' + res.entry_id;
-        else alert(res.error || 'Something went wrong');
-      } catch (err) {
-        alert('Something went wrong');
-      }
-      btn.disabled = false;
-      btn.textContent = 'Overwrite';
-      pendingOverwritePayload = null;
-    };
 
     /* ── Voice-reactive waveform + recording ── */
     (function initVoiceSystem() {
@@ -527,7 +546,7 @@
         const fallback = getFallbackQuestions(full);
         showVoiceClarify(fallback);
         try {
-          const r = await fetch('/api/clarify', {
+          const r = await authFetch('/api/clarify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: full })
@@ -672,7 +691,7 @@
           const formData = new FormData();
           formData.append('audio', blob);
           try {
-            const r = await fetch('/api/transcribe', { method: 'POST', body: formData });
+            const r = await authFetch('/api/transcribe', { method: 'POST', body: formData });
             const data = await r.json();
             resetRecordBtn();
             await handleTranscriptionResult(data, shouldAppend);
@@ -717,7 +736,7 @@
       // Rich reflection: 30+ unique words AND client check passes at least 2 of 3 topics
       if (uniqueWords >= 30 && clientMissing.length <= 1) return [];
       try {
-        const r = await fetch('/api/check-topics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) });
+        const r = await authFetch('/api/check-topics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) });
         const data = await r.json();
         if (r.ok && Array.isArray(data.missing)) return data.missing;
         return clientMissing;
@@ -746,49 +765,47 @@
       pendingSubmit = null;
     };
 
+    const planMoreModal = document.getElementById('plan-more-modal');
+    const lastReflectionModal = document.getElementById('last-reflection-modal');
+    let pendingPlanPayload = null;
+
+    document.getElementById('plan-more-no').onclick = () => {
+      planMoreModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.plan_more_reflections = false;
+        proceedAfterPlanMore(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+    document.getElementById('plan-more-yes').onclick = () => {
+      planMoreModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.plan_more_reflections = true;
+        submitPayload(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+
+    document.getElementById('last-no').onclick = () => {
+      lastReflectionModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.is_last_reflection = false;
+        submitPayload(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+    document.getElementById('last-yes').onclick = () => {
+      lastReflectionModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.is_last_reflection = true;
+        submitPayload(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+
     const generateBtn = document.getElementById('generate-btn');
 
-    async function submitPayload(payload) {
-      generateBtn.disabled = true;
-      generateBtn.textContent = 'Generating…';
-      try {
-        let r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        let res = await r.json();
-        generateBtn.disabled = false;
-        generateBtn.textContent = "Generate Today's Signal";
-        if (res.entry_id && r.ok) {
-          window.location.href = '/entry?id=' + res.entry_id;
-          return;
-        }
-        if (res.error === 'Entry for this date already exists') {
-          pendingOverwritePayload = payload;
-          modal.classList.remove('hidden');
-          return;
-        }
-        alert(res.error || 'Something went wrong');
-      } catch (err) {
-        generateBtn.disabled = false;
-        generateBtn.textContent = "Generate Today's Signal";
-        alert('Something went wrong');
-      }
-    }
-
-    document.getElementById('checkin-form').onsubmit = async (e) => {
-      e.preventDefault();
-      if (generateBtn.disabled) return;
-      const form = e.target;
-      const fd = new FormData(form);
-      const { data: { user } } = await sb.auth.getUser();
-      if (!user) { window.location.href = '/login'; return; }
-      const payload = {
-        user_id: user.id,
-        date: new Date().toISOString().slice(0, 10),
-        sleep_hours: parseFloat(fd.get('sleep_hours')),
-        sleep_quality: parseInt(fd.get('sleep_quality')),
-        energy: parseInt(fd.get('energy')),
-        deep_work_blocks: parseInt(fd.get('deep_work_blocks')),
-        transcript: fd.get('transcript') || ''
-      };
+    async function proceedAfterPlanMore(payload) {
       generateBtn.disabled = true;
       generateBtn.textContent = 'Checking…';
       const missing = await getMissingTopics(payload.transcript);
@@ -811,6 +828,60 @@
         return;
       }
       submitPayload(payload);
+    }
+
+    async function submitPayload(payload) {
+      const saveOnly = payload.plan_more_reflections === true || payload.is_last_reflection === false;
+      generateBtn.disabled = true;
+      generateBtn.textContent = saveOnly ? 'Saving…' : 'Generating…';
+      try {
+        let r = await authFetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        let res = await r.json();
+        generateBtn.disabled = false;
+        generateBtn.textContent = isFollowUp ? 'Add Follow-up' : "Generate Today's Signal";
+        if (res.entry_id && r.ok) {
+          if (res.skipped_analysis || saveOnly) {
+            window.location.href = '/checkin';
+            return;
+          }
+          window.location.href = '/entry?id=' + res.entry_id;
+          return;
+        }
+        alert(res.error || 'Something went wrong');
+      } catch (err) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = isFollowUp ? 'Add Follow-up' : "Generate Today's Signal";
+        alert('Something went wrong');
+      }
+    }
+
+    document.getElementById('checkin-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (generateBtn.disabled) return;
+      const form = e.target;
+      const fd = new FormData(form);
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { window.location.href = '/login'; return; }
+      _authToken = session.access_token;
+      const payload = {
+        date: new Date().toISOString().slice(0, 10),
+        transcript: fd.get('transcript') || '',
+        is_follow_up: isFollowUp,
+      };
+      if (!isFollowUp) {
+        payload.sleep_hours = parseFloat(fd.get('sleep_hours'));
+        payload.sleep_quality = parseInt(fd.get('sleep_quality'));
+        payload.energy = parseInt(fd.get('energy'));
+        payload.deep_work_blocks = parseInt(fd.get('deep_work_blocks'));
+      }
+
+      if (isFollowUp) {
+        pendingPlanPayload = payload;
+        lastReflectionModal.classList.remove('hidden');
+      } else {
+        pendingPlanPayload = payload;
+        planMoreModal.classList.remove('hidden');
+      }
     };
     })();
   </script>

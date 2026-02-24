@@ -10,8 +10,17 @@ from http.server import BaseHTTPRequestHandler
 OPENAI_KEY = (os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_KEY") or "").strip()
 
 
+MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25MB limit
+
+
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        from api.security import get_user_id
+        user_id = get_user_id(self.headers.get("Authorization", ""))
+        if not user_id:
+            self._send(401, {"error": "Authentication required"})
+            return
+
         content_type = self.headers.get("Content-Type", "")
         if "multipart/form-data" not in content_type:
             self._send(400, {"error": "Expected multipart form with audio file"})
@@ -37,6 +46,10 @@ class handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "No audio file in request"})
             return
 
+        if len(audio_data) > MAX_AUDIO_SIZE:
+            self._send(400, {"error": "Audio file too large (max 25MB)"})
+            return
+
         if not OPENAI_KEY:
             self._send(503, {"error": "OPENAI_API_KEY not configured. Add it in Vercel: Settings → Environment Variables.", "transcript": ""})
             return
@@ -56,5 +69,7 @@ class handler(BaseHTTPRequestHandler):
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-type", "application/json")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
         self.end_headers()
         self.wfile.write(json.dumps(body).encode("utf-8"))

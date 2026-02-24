@@ -19,6 +19,7 @@
     </a>
     <div class="flex items-center gap-4">
       <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
+      <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
       <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
     </div>
   </nav>
@@ -37,13 +38,17 @@
           <p class="text-sm font-medium text-white">Weekly Report Ready</p>
           <p class="text-xs text-neutral-400 mt-0.5">Your 7-day pattern analysis is available.</p>
         </div>
-        <a href="/report/weekly" class="px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">View report →</a>
+        <div class="flex gap-2">
+          <a href="/analysis" class="px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Charts →</a>
+          <a href="/report/weekly" class="px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">View report →</a>
+        </div>
       </div>
     </div>
     <div id="list" class="space-y-3">
       <div id="empty" class="glass-card rounded-2xl py-12 text-center text-sm text-neutral-500">No entries yet.</div>
     </div>
-    <div class="mt-8">
+    <div class="mt-8 flex gap-4">
+      <a href="/analysis" class="text-sm text-neutral-400 hover:text-white transition-colors">Charts & analysis →</a>
       <a href="/report/weekly" class="text-sm text-neutral-400 hover:text-white transition-colors">Weekly report →</a>
     </div>
   </main>
@@ -53,20 +58,21 @@
     (function() {
     const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
 
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (!session) window.location.href = '/login';
-    });
-    document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+    sb.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { window.location.href = '/login'; return; }
+      const token = session.access_token;
 
-    sb.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      sb.from('entries').select('id, date, energy, deep_work_blocks, reflection_summary').eq('user_id', user.id).order('date', { ascending: false }).then(({ data }) => {
+      document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+
+      try {
+        const resp = await fetch('/api/entries', { headers: { 'Authorization': 'Bearer ' + token } });
+        const json = await resp.json();
+        const data = json.data || [];
         const list = document.getElementById('list');
         const empty = document.getElementById('empty');
         if (!data || data.length === 0) return;
         empty.classList.add('hidden');
 
-        // Streak / progress
         const count = data.length;
         const badge = document.getElementById('streak-badge');
         const dots = document.getElementById('streak-dots');
@@ -89,11 +95,13 @@
           const a = document.createElement('a');
           a.href = '/entry?id=' + e.id;
           a.className = 'block glass-card rounded-2xl p-4 hover:bg-white/[0.06] transition-colors';
-          a.innerHTML = '<div class="flex justify-between items-start"><span class="text-sm text-white">' + e.date + '</span><span class="text-xs text-neutral-500">Energy ' + (e.energy || '—') + ' · ' + (e.deep_work_blocks ?? '—') + ' blocks</span></div><p class="text-xs text-neutral-400 mt-1 truncate">' + (e.reflection_summary || '—') + '</p>';
+          const num = e.entry_number || 1;
+          const badge = num > 1 ? '<span class="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-neutral-400">follow-up</span>' : '';
+          const label = e.date + (num > 1 ? ' #' + num : '');
+          a.innerHTML = '<div class="flex justify-between items-start"><span class="text-sm text-white">' + label + badge + '</span><span class="text-xs text-neutral-500">Energy ' + (e.energy || '—') + ' · ' + (e.deep_work_blocks ?? '—') + ' blocks</span></div><p class="text-xs text-neutral-400 mt-1 truncate">' + (e.reflection_summary || '—') + '</p>';
           list.appendChild(a);
         });
-      });
-    });
+      } catch(err) { console.error('Failed to load entries', err); }
     })();
   </script>
 </body>

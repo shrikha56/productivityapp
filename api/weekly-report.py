@@ -165,18 +165,22 @@ Return valid JSON only. No markdown. Structure:
 
 
 class handler(BaseHTTPRequestHandler):
+    def _get_user_id(self):
+        from api.security import get_user_id
+        return get_user_id(self.headers.get("Authorization", ""))
+
     def do_POST(self):
+        user_id = self._get_user_id()
+        if not user_id:
+            self._send(401, {"error": "Authentication required"})
+            return
+
         content_len = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(content_len).decode("utf-8") if content_len else "{}"
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
             self._send(400, {"error": "Invalid JSON"})
-            return
-
-        user_id = data.get("user_id")
-        if not user_id:
-            self._send(400, {"error": "user_id required"})
             return
 
         supabase = get_supabase()
@@ -186,6 +190,11 @@ class handler(BaseHTTPRequestHandler):
 
         result = supabase.table("entries").select("*").eq("user_id", user_id).order("date", desc=True).limit(30).execute()
         entries = result.data or []
+
+        from api.security import decrypt
+        for entry in entries:
+            entry["transcript"] = decrypt(entry.get("transcript") or "")
+            entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
 
         if len(entries) < 7:
             self._send(200, {"locked": True, "entries_count": len(entries), "needed": 7})
@@ -201,5 +210,7 @@ class handler(BaseHTTPRequestHandler):
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-type", "application/json")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
         self.end_headers()
         self.wfile.write(json.dumps(body).encode("utf-8"))

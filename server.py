@@ -17,13 +17,63 @@ except ImportError:
     pass
 
 from flask import Flask, request, jsonify, send_from_directory, Response
+from functools import wraps
 
 # Import API logic from Vercel functions
 from api.analyze import get_supabase, analyze_with_gpt
+from api.security import (
+    get_user_id, encrypt, decrypt,
+    sanitize_text, clamp_int, clamp_float, validate_date, validate_uuid,
+)
 import importlib
 weekly_report_mod = importlib.import_module("api.weekly-report")
 
 app = Flask(__name__, static_folder=".", static_url_path="")
+
+
+# ── Security headers ──
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), payment=()"
+    return response
+
+
+# ── Rate limiting (simple in-memory) ──
+
+from collections import defaultdict
+import time
+
+_rate_limits = defaultdict(list)
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX = 30
+
+def check_rate_limit(key: str) -> bool:
+    now = time.time()
+    _rate_limits[key] = [t for t in _rate_limits[key] if now - t < RATE_LIMIT_WINDOW]
+    if len(_rate_limits[key]) >= RATE_LIMIT_MAX:
+        return False
+    _rate_limits[key].append(now)
+    return True
+
+
+# ── Auth decorator ──
+
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user_id = get_user_id(request.headers.get("Authorization", ""))
+        if not user_id:
+            return jsonify({"error": "Authentication required"}), 401
+        request.authenticated_user_id = user_id
+        if not check_rate_limit(user_id):
+            return jsonify({"error": "Too many requests. Try again shortly."}), 429
+        return f(*args, **kwargs)
+    return decorated
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("EXPO_PUBLIC_SUPABASE_URL", "")
 SUPABASE_KEY = (
@@ -87,7 +137,83 @@ def report_page():
     return send_from_directory(".", "report.html")
 
 
+@app.route("/analysis")
+def analysis():
+    return send_from_directory(".", "analysis.html")
+
+
 # --- API routes ---
+
+@app.route("/api/entries", methods=["GET"])
+@require_auth
+def list_entries():
+    """Fetch user's entries with decrypted fields."""
+    user_id = request.authenticated_user_id
+    supabase = get_supabase()
+    if not supabase:
+        return jsonify({"error": "Server not configured"}), 503
+    try:
+        try:
+            result = supabase.table("entries").select(
+                "id, date, sleep_hours, sleep_quality, energy, deep_work_blocks, reflection_summary, entry_number, is_follow_up"
+            ).eq("user_id", user_id).order("date", desc=True).limit(90).execute()
+        except Exception:
+            result = supabase.table("entries").select(
+                "id, date, sleep_hours, sleep_quality, energy, deep_work_blocks, reflection_summary"
+            ).eq("user_id", user_id).order("date", desc=True).limit(90).execute()
+        entries = result.data or []
+        for e in entries:
+            e["reflection_summary"] = decrypt(e.get("reflection_summary") or "")
+        return jsonify({"data": entries})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/entries/today", methods=["GET"])
+@require_auth
+def today_entries():
+    """Check how many entries the user has for today."""
+    user_id = request.authenticated_user_id
+    today = __import__("datetime").date.today().isoformat()
+    supabase = get_supabase()
+    if not supabase:
+        return jsonify({"error": "Server not configured"}), 503
+    try:
+        try:
+            result = supabase.table("entries").select("id, entry_number, is_follow_up").eq(
+                "user_id", user_id
+            ).eq("date", today).order("entry_number", desc=False).execute()
+        except Exception:
+            result = supabase.table("entries").select("id").eq(
+                "user_id", user_id
+            ).eq("date", today).execute()
+        entries = result.data or []
+        return jsonify({"count": len(entries), "entries": entries})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/entries/<entry_id>", methods=["GET"])
+@require_auth
+def get_entry(entry_id):
+    """Fetch a single entry with decrypted fields, verifying ownership."""
+    user_id = request.authenticated_user_id
+    if not validate_uuid(entry_id):
+        return jsonify({"error": "Invalid entry ID"}), 400
+    supabase = get_supabase()
+    if not supabase:
+        return jsonify({"error": "Server not configured"}), 503
+    try:
+        result = supabase.table("entries").select("*").eq("id", entry_id).eq("user_id", user_id).single().execute()
+        entry = result.data
+        if not entry:
+            return jsonify({"error": "Entry not found"}), 404
+        entry["transcript"] = decrypt(entry.get("transcript") or "")
+        entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
+        return jsonify({"data": entry})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/join", methods=["POST"])
 def join():
@@ -111,66 +237,136 @@ def join():
         return jsonify({"ok": False, "error": "Something went wrong"}), 500
 
 
+def _pending_analysis_result():
+    return {
+        "reflection_summary": "",
+        "likely_drivers": ["Analysis pending"],
+        "predicted_impact": "—",
+        "experiment_for_tomorrow": "—",
+    }
+
+
 @app.route("/api/analyze", methods=["POST"])
+@require_auth
 def analyze():
     data = request.get_json(force=True, silent=True) or {}
-    user_id = data.get("user_id")
-    if not user_id:
-        return jsonify({"error": "user_id required"}), 400
+    user_id = request.authenticated_user_id
 
     supabase = get_supabase()
     if not supabase:
         return jsonify({"error": "Server not configured"}), 503
 
-    transcript = data.get("transcript", "") or ""
-    sleep_hours = float(data.get("sleep_hours", 0))
-    sleep_quality = int(data.get("sleep_quality", 3))
-    energy = int(data.get("energy", 3))
-    deep_work = int(data.get("deep_work_blocks", 0))
+    transcript = sanitize_text(data.get("transcript", "") or "", max_length=5000)
+    sleep_hours = clamp_float(data.get("sleep_hours", 0), 0, 24, default=0)
+    sleep_quality = clamp_int(data.get("sleep_quality", 3), 1, 5, default=3)
+    energy = clamp_int(data.get("energy", 3), 1, 5, default=3)
+    deep_work = clamp_int(data.get("deep_work_blocks", 0), 0, 5, default=0)
+    entry_date = validate_date(data.get("date", ""))
+    if not entry_date:
+        return jsonify({"error": "Valid date required (YYYY-MM-DD)"}), 400
 
-    result = analyze_with_gpt(transcript, sleep_hours, sleep_quality, energy, deep_work, api_key=OPENAI_KEY)
+    is_follow_up = data.get("is_follow_up") is True
+    plan_more_reflections = data.get("plan_more_reflections") in (True, "true", 1)
+    is_last_reflection = data.get("is_last_reflection") in (True, "true", 1)
 
-    # If GPT failed (fallback), don't save — return error so user can retry
-    if result.get("likely_drivers") == ["Analysis pending"]:
-        err = result.get("_error", "Unknown error")
-        return jsonify({"error": f"Analysis failed: {err}"}), 503
+    has_multi_entry_cols = True
+    try:
+        existing = supabase.table("entries").select("id, entry_number, sleep_hours, sleep_quality, energy, deep_work_blocks, transcript").eq("user_id", user_id).eq("date", entry_date).order("entry_number", desc=False).execute()
+        existing_entries = existing.data or []
+        next_number = (existing_entries[-1]["entry_number"] + 1) if existing_entries else 1
+    except Exception:
+        has_multi_entry_cols = False
+        existing = supabase.table("entries").select("id, sleep_hours, sleep_quality, energy, deep_work_blocks, transcript").eq("user_id", user_id).eq("date", entry_date).execute()
+        existing_entries = existing.data or []
+        next_number = len(existing_entries) + 1
+
+    if is_follow_up and existing_entries:
+        first = existing_entries[0]
+        sleep_hours = first.get("sleep_hours") or sleep_hours
+        sleep_quality = first.get("sleep_quality") or sleep_quality
+        energy = first.get("energy") or energy
+        deep_work = first.get("deep_work_blocks") or deep_work
+
+    skip_analysis = False
+    if is_follow_up:
+        skip_analysis = not is_last_reflection
+    else:
+        skip_analysis = plan_more_reflections
+
+    if skip_analysis:
+        result = _pending_analysis_result()
+    elif is_follow_up and is_last_reflection and existing_entries:
+        parts = []
+        for i, e in enumerate(existing_entries):
+            raw = decrypt(e.get("transcript") or "")
+            if raw.strip():
+                label = f"Reflection {i + 1}:" if len(existing_entries) > 1 else ""
+                parts.append((label + " " + raw.strip()).strip())
+        if transcript.strip():
+            parts.append(f"Reflection {len(existing_entries) + 1}: " + transcript.strip())
+        combined = "\n\n".join(parts) if parts else transcript
+        result = analyze_with_gpt(combined, sleep_hours, sleep_quality, energy, deep_work, api_key=OPENAI_KEY)
+        if result.get("likely_drivers") == ["Analysis pending"]:
+            err = result.get("_error", "Unknown error")
+            return jsonify({"error": f"Analysis failed: {err}"}), 503
+    else:
+        result = analyze_with_gpt(transcript, sleep_hours, sleep_quality, energy, deep_work, api_key=OPENAI_KEY)
+        if result.get("likely_drivers") == ["Analysis pending"]:
+            err = result.get("_error", "Unknown error")
+            return jsonify({"error": f"Analysis failed: {err}"}), 503
 
     row = {
         "user_id": user_id,
-        "date": data.get("date"),
-        "sleep_hours": data.get("sleep_hours"),
-        "sleep_quality": data.get("sleep_quality"),
-        "energy": data.get("energy"),
-        "deep_work_blocks": data.get("deep_work_blocks"),
-        "transcript": data.get("transcript"),
-        "reflection_summary": result.get("reflection_summary"),
+        "date": entry_date,
+        "sleep_hours": sleep_hours,
+        "sleep_quality": sleep_quality,
+        "energy": energy,
+        "deep_work_blocks": deep_work,
+        "transcript": encrypt(transcript),
+        "reflection_summary": encrypt(result.get("reflection_summary", "")),
         "likely_drivers": result.get("likely_drivers", []),
-        "predicted_impact": result.get("predicted_impact"),
-        "experiment_for_tomorrow": result.get("experiment_for_tomorrow"),
+        "predicted_impact": result.get("predicted_impact", ""),
+        "experiment_for_tomorrow": result.get("experiment_for_tomorrow", ""),
     }
-
-    overwrite = data.get("overwrite") is True
-    existing = supabase.table("entries").select("id").eq("user_id", user_id).eq("date", row["date"]).limit(1).execute()
-
-    if existing.data and len(existing.data) > 0:
-        if overwrite:
-            entry_id = existing.data[0]["id"]
-            update_row = {k: v for k, v in row.items() if k not in ("user_id", "date")}
-            supabase.table("entries").update(update_row).eq("id", entry_id).execute()
-            return jsonify({"entry_id": str(entry_id)})
-        return jsonify({"error": "Entry for this date already exists", "entry_id": str(existing.data[0]["id"])}), 400
+    if has_multi_entry_cols:
+        row["entry_number"] = next_number
+        row["is_follow_up"] = is_follow_up and next_number > 1
 
     try:
         r = supabase.table("entries").insert(row).execute()
         entry_id = r.data[0]["id"] if r.data else None
-        return jsonify({"entry_id": str(entry_id)})
+
+        if is_follow_up and is_last_reflection and existing_entries and not skip_analysis:
+            update_data = {
+                "reflection_summary": encrypt(result.get("reflection_summary", "")),
+                "likely_drivers": result.get("likely_drivers", []),
+                "predicted_impact": result.get("predicted_impact", ""),
+                "experiment_for_tomorrow": result.get("experiment_for_tomorrow", ""),
+            }
+            for e in existing_entries:
+                supabase.table("entries").update(update_data).eq("id", e["id"]).execute()
+
+        out = {"entry_id": str(entry_id), "entry_number": next_number}
+        if skip_analysis:
+            out["skipped_analysis"] = True
+        return jsonify(out)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        err = str(e)
+        if "duplicate" in err.lower() or "unique" in err.lower() or "23505" in err:
+            if not has_multi_entry_cols and existing_entries:
+                entry_id = existing_entries[0]["id"]
+                update_row = {k: v for k, v in row.items() if k not in ("user_id", "date")}
+                supabase.table("entries").update(update_row).eq("id", entry_id).execute()
+                return jsonify({"entry_id": str(entry_id), "entry_number": 1, "overwritten": True})
+            return jsonify({"error": "Run supabase-multi-entries.sql in Supabase SQL Editor to enable multiple entries per day."}), 400
+        return jsonify({"error": err}), 500
 
 
 @app.route("/api/weekly-report", methods=["POST"])
+@require_auth
 def weekly_report():
     data = request.get_json(force=True, silent=True) or {}
+    user_id = request.authenticated_user_id
 
     # Demo mode: use test data + real GPT
     if data.get("demo"):
@@ -202,10 +398,6 @@ def weekly_report():
             return jsonify(report), 503
         return jsonify(report)
 
-    user_id = data.get("user_id")
-    if not user_id:
-        return jsonify({"error": "user_id required"}), 400
-
     supabase = get_supabase()
     if not supabase:
         return jsonify({"error": "Server not configured"}), 503
@@ -215,6 +407,10 @@ def weekly_report():
         entries = result.data or []
     except Exception as e:
         return jsonify({"error": f"Failed to fetch entries: {e}"}), 500
+
+    for entry in entries:
+        entry["transcript"] = decrypt(entry.get("transcript") or "")
+        entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
 
     if len(entries) < 7:
         return jsonify({"locked": True, "entries_count": len(entries), "needed": 7})
@@ -255,10 +451,10 @@ def check_topics():
         r = Response("", 204)
         r.headers["Access-Control-Allow-Origin"] = "*"
         r.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        r.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         return r
     data = request.get_json(force=True, silent=True) or {}
-    text = (data.get("text") or "").strip()
+    text = sanitize_text((data.get("text") or ""), max_length=2000)
     if len(text) < 5:
         return jsonify({"missing": ["How did you sleep?", "What are you feeling?", "What did you attempt?"]})
     if not OPENAI_KEY:
@@ -331,10 +527,10 @@ def clarify():
         r = Response("", 204)
         r.headers["Access-Control-Allow-Origin"] = "*"
         r.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        r.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        r.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         return r
     data = request.get_json(force=True, silent=True) or {}
-    text = (data.get("text") or "").strip()
+    text = sanitize_text((data.get("text") or ""), max_length=2000)
     if len(text) < 15:
         return jsonify({"questions": [], "source": "none"})
     if not OPENAI_KEY:
@@ -366,10 +562,14 @@ Return JSON array only: ["question1?", "question2?"]."""
 
 
 @app.route("/api/transcribe", methods=["POST"])
+@require_auth
 def transcribe():
     file = request.files.get("audio") or request.files.get("file")
     if not file or not file.filename:
         return jsonify({"error": "No audio file in request"}), 400
+
+    if file.content_length and file.content_length > 25 * 1024 * 1024:
+        return jsonify({"error": "Audio file too large (max 25MB)"}), 400
 
     if not OPENAI_KEY:
         return jsonify({"error": "OPENAI_API_KEY not configured. Add it to .env for local dev, or Vercel Environment Variables for production.", "transcript": ""}), 503
@@ -388,13 +588,21 @@ def transcribe():
         return jsonify({"error": str(e), "transcript": ""}), 500
 
 
+ALLOWED_STATIC_EXTENSIONS = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp', '.woff', '.woff2', '.ttf'}
+
 @app.route("/<path:path>")
 def serve_static(path):
     """Serve static files (css, js, etc.) that exist on disk."""
-    if ".." in path:
+    if ".." in path or path.startswith("/"):
         return "Not Found", 404
-    full = os.path.join(".", path)
-    if os.path.isfile(full):
+    resolved = os.path.realpath(os.path.join(".", path))
+    root = os.path.realpath(".")
+    if not resolved.startswith(root):
+        return "Not Found", 404
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in ALLOWED_STATIC_EXTENSIONS:
+        return "Not Found", 404
+    if os.path.isfile(resolved):
         return send_from_directory(".", path)
     return "Not Found", 404
 

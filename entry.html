@@ -20,6 +20,7 @@
     </a>
     <div class="flex items-center gap-4">
       <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
+      <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
       <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
       <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
     </div>
@@ -31,7 +32,8 @@
       <div id="analysis-failed-banner" class="hidden mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-sm">
         Analysis could not be generated. Your entry was saved. Try generating again from the check-in page.
       </div>
-      <h1 class="text-2xl font-medium text-white tracking-tight mb-8">Today's Signal</h1>
+      <h1 id="entry-title" class="text-2xl font-medium text-white tracking-tight mb-1">Today's Signal</h1>
+      <p id="entry-meta" class="text-xs text-neutral-500 mb-8"></p>
       <div class="space-y-4">
         <div id="card-summary" class="glass-panel rounded-2xl p-6">
           <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Reflection Summary</span>
@@ -62,18 +64,26 @@
     (function() {
     const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
 
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (!session) window.location.href = '/login';
-    });
-    document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+    sb.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { window.location.href = '/login'; return; }
+      const token = session.access_token;
 
-    const id = new URLSearchParams(location.search).get('id');
-    if (!id) { document.getElementById('loading').textContent = 'No entry specified.'; document.getElementById('loading').classList.remove('hidden'); }
-    else {
-      sb.from('entries').select('*').eq('id', id).single().then(({ data, error }) => {
+      document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+
+      const id = new URLSearchParams(location.search).get('id');
+      if (!id) { document.getElementById('loading').textContent = 'No entry specified.'; return; }
+
+      try {
+        const resp = await fetch('/api/entries/' + encodeURIComponent(id), { headers: { 'Authorization': 'Bearer ' + token } });
+        const json = await resp.json();
         document.getElementById('loading').classList.add('hidden');
-        if (error || !data) { document.body.innerHTML += '<p class="text-red-400 text-center">Entry not found.</p>'; return; }
+        if (!resp.ok || !json.data) { document.body.innerHTML += '<p class="text-red-400 text-center">Entry not found.</p>'; return; }
+        const data = json.data;
         document.getElementById('content').classList.remove('hidden');
+        const num = data.entry_number || 1;
+        const meta = data.date + (num > 1 ? ' · Entry #' + num + ' (follow-up)' : '');
+        document.getElementById('entry-meta').textContent = meta;
+        if (data.is_follow_up) document.getElementById('entry-title').textContent = 'Follow-up Signal';
         document.getElementById('summary').textContent = data.reflection_summary || '—';
         document.getElementById('impact').textContent = data.predicted_impact || '—';
         document.getElementById('experiment').textContent = data.experiment_for_tomorrow || '—';
@@ -84,9 +94,9 @@
         if (drivers.length === 1 && drivers[0] === 'Analysis pending') {
           document.getElementById('analysis-failed-banner').classList.remove('hidden');
         }
-      });
-    }
-    })();
+      } catch(err) { document.getElementById('loading').textContent = 'Failed to load entry.'; console.error(err); }
+    });
+  })();
   </script>
 </body>
 </html>

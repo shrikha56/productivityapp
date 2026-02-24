@@ -6,7 +6,7 @@
   <title>Sign up — Signal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/signal.css?v=2">
+  <link rel="stylesheet" href="/css/signal.css?v=3">
 </head>
 <body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
   <div class="noise-bg"></div>
@@ -20,32 +20,68 @@
     <a href="/login" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log in</a>
   </nav>
 
-  <main class="relative z-10 max-w-sm mx-auto px-6 pt-16 pb-24">
+  <div id="page-loader" class="relative z-10 flex items-center justify-center pt-32">
+    <div class="w-5 h-5 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
+  </div>
+
+  <main id="main-content" class="relative z-10 max-w-sm mx-auto px-6 pt-16 pb-24 hidden">
     <h1 class="text-2xl font-medium text-white tracking-tight mb-2">Create account</h1>
     <p class="text-sm text-neutral-500 mb-8">Start your 7-day experiment.</p>
 
     <div class="glass-card rounded-2xl p-6">
+      <!-- Google OAuth -->
+      <button id="google-btn" type="button" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-neutral-100 text-black text-sm font-medium py-2.5 rounded-lg transition-colors mb-4">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 2.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="flex items-center gap-3 my-4">
+        <div class="flex-1 h-px bg-white/10"></div>
+        <span class="text-[10px] text-neutral-500 uppercase tracking-wider">or</span>
+        <div class="flex-1 h-px bg-white/10"></div>
+      </div>
+
       <form id="signup-form" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-neutral-400 mb-1.5">Email</label>
-          <input type="email" name="email" required placeholder="you@work.com"
+          <input type="email" name="email" required placeholder="you@work.com" autocomplete="email"
             class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:border-white/30 focus:ring-0 outline-none">
         </div>
         <div>
           <label class="block text-xs font-medium text-neutral-400 mb-1.5">Password</label>
-          <input type="password" name="password" required placeholder="••••••••" minlength="6"
-            class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:border-white/30 focus:ring-0 outline-none">
+          <div class="relative">
+            <input type="password" name="password" required placeholder="••••••••" minlength="6" autocomplete="new-password"
+              class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-neutral-600 focus:border-white/30 focus:ring-0 outline-none">
+            <button type="button" id="toggle-pw" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors text-xs">Show</button>
+          </div>
+          <div id="pw-strength" class="mt-2 hidden">
+            <div class="flex gap-1">
+              <div id="bar-1" class="h-1 flex-1 rounded-full bg-white/10"></div>
+              <div id="bar-2" class="h-1 flex-1 rounded-full bg-white/10"></div>
+              <div id="bar-3" class="h-1 flex-1 rounded-full bg-white/10"></div>
+              <div id="bar-4" class="h-1 flex-1 rounded-full bg-white/10"></div>
+            </div>
+            <p id="pw-hint" class="text-[10px] text-neutral-500 mt-1"></p>
+          </div>
         </div>
         <p id="msg" class="text-xs min-h-[1rem]"></p>
-        <button type="submit" class="w-full bg-white hover:bg-neutral-200 text-black text-sm font-medium py-2.5 rounded-lg transition-colors">
-          Sign up
+        <button type="submit" id="submit-btn" class="w-full bg-white hover:bg-neutral-200 text-black text-sm font-medium py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+          Create account
         </button>
       </form>
-      <p class="text-xs text-neutral-500 mt-4 text-center">or</p>
-      <button id="magic-link" type="button" class="w-full mt-3 border border-white/10 hover:border-white/20 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
+
+      <div class="flex items-center gap-3 my-4">
+        <div class="flex-1 h-px bg-white/10"></div>
+        <span class="text-[10px] text-neutral-500 uppercase tracking-wider">or</span>
+        <div class="flex-1 h-px bg-white/10"></div>
+      </div>
+
+      <button id="magic-link" type="button" class="w-full border border-white/10 hover:border-white/20 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
         Sign up with email link
       </button>
     </div>
+
+    <p class="text-xs text-neutral-600 text-center mt-6">By signing up you agree to our terms. Your data is encrypted and private.</p>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -57,22 +93,87 @@
       );
       const redirectTo = window.location.origin + '/auth/callback';
 
-      function msg(t, err) { const el = document.getElementById('msg'); el.textContent = t; el.className = 'text-xs min-h-[1rem] ' + (err ? 'text-red-400' : 'text-green-400'); }
+      // Auto-redirect if already logged in
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          window.location.href = '/checkin';
+        } else {
+          document.getElementById('page-loader').classList.add('hidden');
+          document.getElementById('main-content').classList.remove('hidden');
+        }
+      });
 
+      function msg(t, err) {
+        const el = document.getElementById('msg');
+        el.textContent = t;
+        el.className = 'text-xs min-h-[1rem] ' + (err ? 'text-red-400' : 'text-green-400');
+      }
+
+      // Show/hide password
+      document.getElementById('toggle-pw').onclick = function() {
+        const inp = document.querySelector('[name="password"]');
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        this.textContent = show ? 'Hide' : 'Show';
+      };
+
+      // Password strength indicator
+      function checkStrength(pw) {
+        let score = 0;
+        if (pw.length >= 6) score++;
+        if (pw.length >= 10) score++;
+        if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+        if (/\d/.test(pw) || /[^A-Za-z0-9]/.test(pw)) score++;
+        return score;
+      }
+
+      const colors = ['bg-red-500', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-400'];
+      const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+
+      document.querySelector('[name="password"]').addEventListener('input', (e) => {
+        const pw = e.target.value;
+        const panel = document.getElementById('pw-strength');
+        if (!pw) { panel.classList.add('hidden'); return; }
+        panel.classList.remove('hidden');
+        const score = checkStrength(pw);
+        for (let i = 1; i <= 4; i++) {
+          const bar = document.getElementById('bar-' + i);
+          bar.className = 'h-1 flex-1 rounded-full ' + (i <= score ? colors[score - 1] : 'bg-white/10');
+        }
+        document.getElementById('pw-hint').textContent = pw.length < 6 ? 'At least 6 characters' : labels[score - 1];
+      });
+
+      // Google OAuth
+      document.getElementById('google-btn').onclick = async () => {
+        try {
+          const { error } = await sb.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo }
+          });
+          if (error) throw error;
+        } catch (err) {
+          msg(err.message || 'Google sign-in failed', true);
+        }
+      };
+
+      // Email + password signup
       document.getElementById('signup-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const btn = document.getElementById('submit-btn');
         const email = e.target.email.value.trim();
         const password = e.target.password.value;
-        msg('Creating account…');
+        if (!email || !password) { msg('Fill in all fields', true); return; }
+        if (password.length < 6) { msg('Password must be at least 6 characters', true); return; }
+        btn.disabled = true;
+        btn.textContent = 'Creating account…';
+        msg('');
         try {
-          const { data, error } = await sb.auth.signUp({
-            email,
-            password,
-            options: { emailRedirectTo: redirectTo }
-          });
+          const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
           if (error) throw error;
           if (data?.user?.identities?.length === 0) {
             msg('This email is already registered. Try logging in.', true);
+            btn.disabled = false;
+            btn.textContent = 'Create account';
             return;
           }
           if (data?.session) {
@@ -80,22 +181,26 @@
             return;
           }
           msg('Check your email to confirm your account.', false);
+          btn.disabled = false;
+          btn.textContent = 'Create account';
         } catch (err) {
-          msg(err.message || 'Something went wrong', true);
+          const m = err.message || '';
+          if (m.includes('already registered')) msg('This email is already registered. Try logging in.', true);
+          else msg(m || 'Something went wrong', true);
+          btn.disabled = false;
+          btn.textContent = 'Create account';
         }
       });
 
+      // Magic link
       document.getElementById('magic-link').addEventListener('click', async () => {
         const email = document.querySelector('[name="email"]').value.trim();
-        if (!email) { msg('Enter your email first', true); return; }
+        if (!email) { msg('Enter your email above first', true); return; }
         msg('Sending sign-up link…');
         try {
-          const { error } = await sb.auth.signInWithOtp({
-            email,
-            options: { emailRedirectTo: redirectTo }
-          });
+          const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
           if (error) throw error;
-          msg('Check your email for the link.', false);
+          msg('Check your email for the sign-up link.', false);
         } catch (err) {
           msg(err.message || 'Something went wrong', true);
         }

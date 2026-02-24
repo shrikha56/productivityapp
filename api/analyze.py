@@ -195,7 +195,16 @@ Return JSON only:
 
 
 class handler(BaseHTTPRequestHandler):
+    def _get_user_id(self):
+        from api.security import get_user_id
+        return get_user_id(self.headers.get("Authorization", ""))
+
     def do_POST(self):
+        user_id = self._get_user_id()
+        if not user_id:
+            self._send(401, {"error": "Authentication required"})
+            return
+
         content_len = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(content_len).decode("utf-8") if content_len else "{}"
         try:
@@ -204,21 +213,22 @@ class handler(BaseHTTPRequestHandler):
             self._send(400, {"error": "Invalid JSON"})
             return
 
-        user_id = data.get("user_id")
-        if not user_id:
-            self._send(400, {"error": "user_id required"})
-            return
-
         supabase = get_supabase()
         if not supabase:
             self._send(503, {"error": "Server not configured"})
             return
 
-        transcript = data.get("transcript", "") or ""
-        sleep_hours = float(data.get("sleep_hours", 0))
-        sleep_quality = int(data.get("sleep_quality", 3))
-        energy = int(data.get("energy", 3))
-        deep_work = int(data.get("deep_work_blocks", 0))
+        from api.security import sanitize_text, clamp_float, clamp_int, validate_date, encrypt
+
+        transcript = sanitize_text(data.get("transcript", "") or "", max_length=5000)
+        sleep_hours = clamp_float(data.get("sleep_hours", 0), 0, 24, default=0)
+        sleep_quality = clamp_int(data.get("sleep_quality", 3), 1, 5, default=3)
+        energy = clamp_int(data.get("energy", 3), 1, 5, default=3)
+        deep_work = clamp_int(data.get("deep_work_blocks", 0), 0, 5, default=0)
+        entry_date = validate_date(data.get("date", ""))
+        if not entry_date:
+            self._send(400, {"error": "Valid date required (YYYY-MM-DD)"})
+            return
 
         if not data.get("skip_missing_check") and not data.get("overwrite"):
             missing = check_missing_answer(transcript, sleep_hours, sleep_quality, energy, deep_work)
@@ -232,42 +242,46 @@ class handler(BaseHTTPRequestHandler):
             self._send(503, {"error": "Analysis failed. Add OPENAI_API_KEY to Vercel Environment Variables (Settings → Environment Variables) and redeploy."})
             return
 
+        is_follow_up = data.get("is_follow_up") is True
+        existing = supabase.table("entries").select("id, entry_number, sleep_hours, sleep_quality, energy, deep_work_blocks").eq(
+            "user_id", user_id).eq("date", entry_date).order("entry_number", desc=True).execute()
+        existing_entries = existing.data or []
+        next_number = (existing_entries[0]["entry_number"] + 1) if existing_entries else 1
+
+        if is_follow_up and existing_entries:
+            first = existing_entries[-1]
+            sleep_hours = first.get("sleep_hours") or sleep_hours
+            sleep_quality = first.get("sleep_quality") or sleep_quality
+            energy = first.get("energy") or energy
+            deep_work = first.get("deep_work_blocks") or deep_work
+
         row = {
             "user_id": user_id,
-            "date": data.get("date"),
-            "sleep_hours": data.get("sleep_hours"),
-            "sleep_quality": data.get("sleep_quality"),
-            "energy": data.get("energy"),
-            "deep_work_blocks": data.get("deep_work_blocks"),
-            "transcript": data.get("transcript"),
-            "reflection_summary": result.get("reflection_summary"),
+            "date": entry_date,
+            "entry_number": next_number,
+            "is_follow_up": is_follow_up and next_number > 1,
+            "sleep_hours": sleep_hours,
+            "sleep_quality": sleep_quality,
+            "energy": energy,
+            "deep_work_blocks": deep_work,
+            "transcript": encrypt(transcript),
+            "reflection_summary": encrypt(result.get("reflection_summary", "")),
             "likely_drivers": result.get("likely_drivers", []),
-            "predicted_impact": result.get("predicted_impact"),
-            "experiment_for_tomorrow": result.get("experiment_for_tomorrow"),
+            "predicted_impact": result.get("predicted_impact", ""),
+            "experiment_for_tomorrow": result.get("experiment_for_tomorrow", ""),
         }
-
-        overwrite = data.get("overwrite") is True
-        existing = supabase.table("entries").select("id").eq("user_id", user_id).eq("date", row["date"]).limit(1).execute()
-
-        if existing.data and len(existing.data) > 0:
-            if overwrite:
-                entry_id = existing.data[0]["id"]
-                update_row = {k: v for k, v in row.items() if k not in ("user_id", "date")}
-                supabase.table("entries").update(update_row).eq("id", entry_id).execute()
-                self._send(200, {"entry_id": str(entry_id)})
-            else:
-                self._send(400, {"error": "Entry for this date already exists", "entry_id": str(existing.data[0]["id"])})
-            return
 
         try:
             r = supabase.table("entries").insert(row).execute()
             entry_id = r.data[0]["id"] if r.data else None
-            self._send(200, {"entry_id": str(entry_id)})
+            self._send(200, {"entry_id": str(entry_id), "entry_number": next_number})
         except Exception as e:
             self._send(500, {"error": str(e)})
 
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-type", "application/json")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
         self.end_headers()
         self.wfile.write(json.dumps(body).encode("utf-8"))
