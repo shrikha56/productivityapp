@@ -91,8 +91,7 @@
             <button type="button" id="tab-type" class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors">Type</button>
           </div>
 
-          <p id="shared-guiding-questions" class="text-xs text-neutral-500 mb-3">How did you sleep? What are you feeling? What did you attempt?</p>
-          <div id="quick-chips" class="flex flex-wrap gap-2 mb-4">
+          <div id="quick-chips" class="flex flex-wrap gap-2 mb-4 hidden">
             <!-- Default chips (learned chips appended by JS) -->
             <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="poor sleep">poor sleep</button>
             <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="snacking">snacking</button>
@@ -140,9 +139,18 @@
               <span id="record-timer" class="text-xs text-neutral-500 tabular-nums hidden">0:00</span>
             </div>
             <div id="transcript-preview" class="mt-4 p-3 rounded-lg glass-nested text-sm text-neutral-300 whitespace-pre-line hidden"></div>
-            <div id="voice-actions" class="flex justify-center gap-3 mt-3 hidden">
-              <button type="button" id="start-over-btn" class="text-xs px-4 py-2 rounded-lg border border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white transition-colors">Start over</button>
-              <button type="button" id="add-more-btn" class="text-xs px-4 py-2 rounded-lg border border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white transition-colors">Add more</button>
+            <div id="voice-post-record" class="mt-4 hidden">
+              <div id="voice-ai-prompt" class="p-3 rounded-xl border border-white/10 bg-white/[0.03] space-y-3">
+                <p class="text-xs text-neutral-300"><span class="text-white font-medium">Signal AI</span> can generate follow-up questions to deepen your reflection.</p>
+                <div class="flex gap-2">
+                  <button type="button" id="ai-deepen-btn" class="flex-1 text-xs px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white font-medium hover:bg-white/15 transition-colors">Deepen with AI</button>
+                  <button type="button" id="skip-ai-btn" class="text-xs px-4 py-2.5 rounded-lg border border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white transition-colors">I'm done</button>
+                </div>
+              </div>
+              <div class="flex justify-center gap-3 mt-3">
+                <button type="button" id="start-over-btn" class="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-neutral-500 hover:bg-white/5 hover:text-white transition-colors">Start over</button>
+                <button type="button" id="add-more-btn" class="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-neutral-500 hover:bg-white/5 hover:text-white transition-colors">Record more</button>
+              </div>
             </div>
             <div id="voice-clarify-area" class="mt-4 pt-4 border-t border-white/10 space-y-3 hidden">
               <p id="voice-clarify-label" class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">Questions to deepen your reflection</p>
@@ -342,7 +350,7 @@
     document.getElementById('tab-type').onclick = () => {
       document.getElementById('type-area').classList.remove('hidden');
       document.getElementById('voice-area').classList.add('hidden');
-      document.getElementById('shared-guiding-questions').classList.remove('hidden');
+      document.getElementById('quick-chips').classList.remove('hidden');
       document.getElementById('tab-type').className = TAB_ACTIVE;
       document.getElementById('tab-voice').className = TAB_INACTIVE;
       if (window.waveAnim) window.waveAnim.pause();
@@ -350,7 +358,7 @@
     document.getElementById('tab-voice').onclick = () => {
       document.getElementById('voice-area').classList.remove('hidden');
       document.getElementById('type-area').classList.add('hidden');
-      document.getElementById('shared-guiding-questions').classList.add('hidden');
+      document.getElementById('quick-chips').classList.add('hidden');
       document.getElementById('tab-voice').className = TAB_ACTIVE;
       document.getElementById('tab-type').className = TAB_INACTIVE;
       if (window.waveAnim) window.waveAnim.resume();
@@ -637,10 +645,15 @@
     }
 
     function showPostRecordUI() {
-      document.getElementById('voice-actions').classList.remove('hidden');
+      document.getElementById('voice-post-record').classList.remove('hidden');
+      document.getElementById('voice-ai-prompt').classList.remove('hidden');
+      document.getElementById('record-btn').parentElement.parentElement.classList.add('hidden');
+      document.getElementById('waveform').classList.add('hidden');
     }
     function hidePostRecordUI() {
-      document.getElementById('voice-actions').classList.add('hidden');
+      document.getElementById('voice-post-record').classList.add('hidden');
+      document.getElementById('record-btn').parentElement.parentElement.classList.remove('hidden');
+      document.getElementById('waveform').classList.remove('hidden');
     }
 
     function formatTime(ms) {
@@ -667,26 +680,6 @@
       document.getElementById('voice-guiding-questions').classList.toggle('hidden', !!full.trim());
       updateChipSelection();
       showPostRecordUI();
-      if (typeof updateChipSelection === 'function') updateChipSelection();
-
-      // Trigger clarifying questions
-      const vcArea = document.getElementById('voice-clarify-area');
-      const vcQuestions = document.getElementById('voice-clarify-questions');
-      vcQuestions.innerHTML = '';
-      vcArea.classList.add('hidden');
-      if (full.length >= 15) {
-        const fallback = getFallbackQuestions(full);
-        showVoiceClarify(fallback);
-        try {
-          const r = await authFetch('/api/clarify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: full })
-          });
-          const cData = await r.json();
-          if (cData.questions && cData.questions.length) showVoiceClarify(cData.questions);
-        } catch (e) { /* fallback already shown */ }
-      }
     }
 
     function showVoiceClarify(questions) {
@@ -726,7 +719,39 @@
     // Add more — record additional audio and append
     document.getElementById('add-more-btn').onclick = () => {
       hidePostRecordUI();
+      document.getElementById('voice-clarify-area').classList.add('hidden');
+      document.getElementById('voice-clarify-questions').innerHTML = '';
       document.getElementById('record-btn').click();
+    };
+
+    // Deepen with AI — fetch clarifying questions
+    document.getElementById('ai-deepen-btn').onclick = async () => {
+      const full = document.getElementById('transcript-input').value || '';
+      document.getElementById('voice-ai-prompt').classList.add('hidden');
+      const vcArea = document.getElementById('voice-clarify-area');
+      const vcQuestions = document.getElementById('voice-clarify-questions');
+      vcQuestions.innerHTML = '<p class="text-xs text-neutral-500 animate-pulse">Generating questions...</p>';
+      vcArea.classList.remove('hidden');
+      if (full.length >= 10) {
+        const fallback = getFallbackQuestions(full);
+        showVoiceClarify(fallback);
+        try {
+          const r = await authFetch('/api/clarify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: full })
+          });
+          const cData = await r.json();
+          if (cData.questions && cData.questions.length) showVoiceClarify(cData.questions);
+        } catch (e) { /* fallback already shown */ }
+      } else {
+        showVoiceClarify(['How did you sleep?', 'What are you feeling?', 'What did you attempt?']);
+      }
+    };
+
+    // Skip AI — dismiss prompt, ready to submit
+    document.getElementById('skip-ai-btn').onclick = () => {
+      document.getElementById('voice-ai-prompt').classList.add('hidden');
     };
 
     // Pause / resume
