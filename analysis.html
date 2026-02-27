@@ -236,7 +236,8 @@
           <span class="text-[10px] text-neutral-600 self-center ml-1">not useful → very useful</span>
         </div>
         <div id="feedback-form-extra" class="hidden mt-3">
-          <textarea id="feedback-comment" rows="2" maxlength="1000" placeholder="Any thoughts? What could be better?" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:border-white/20 focus:ring-0 outline-none resize-none"></textarea>
+          <p id="feedback-prompt" class="text-xs text-neutral-400 mb-2"></p>
+          <textarea id="feedback-comment" rows="2" maxlength="1000" placeholder="" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:border-white/20 focus:ring-0 outline-none resize-none"></textarea>
           <button id="feedback-submit" class="mt-2 px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">Send feedback</button>
         </div>
         <p id="feedback-msg" class="text-xs text-neutral-500 mt-2 min-h-[1rem]"></p>
@@ -548,6 +549,13 @@
 
   // Feedback
   let _selectedRating = 0;
+  const _whyPrompts = {
+    1: "What made this not useful at all?",
+    2: "What was missing or unhelpful?",
+    3: "What would make this more useful?",
+    4: "What did you find most valuable?",
+    5: "What stood out the most to you?",
+  };
   document.querySelectorAll('.fb-star').forEach(btn => {
     btn.onclick = () => {
       _selectedRating = parseInt(btn.dataset.rating);
@@ -556,7 +564,11 @@
         b.className = 'fb-star w-9 h-9 rounded-lg border text-sm transition-all ' +
           (active ? 'border-white/30 bg-white/15 text-white' : 'border-white/10 bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-white');
       });
+      const prompt = _whyPrompts[_selectedRating] || "Why did you choose that number?";
+      document.getElementById('feedback-prompt').textContent = "You picked " + _selectedRating + "/5 — " + prompt;
+      document.getElementById('feedback-comment').placeholder = prompt;
       document.getElementById('feedback-form-extra').classList.remove('hidden');
+      document.getElementById('feedback-comment').focus();
     };
   });
 

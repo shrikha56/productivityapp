@@ -37,7 +37,7 @@ def build_reminder_html(day_number, user_name=""):
     app_url = os.environ.get("APP_URL", "https://signalapp.vercel.app")
 
     encouragement = {
-        1: "Great start! Your first check-in sets the baseline for everything.",
+        1: "You signed up — now let's make it count. Your first check-in takes 2 minutes and sets the baseline for everything Signal does for you.",
         2: "Day 2 — patterns start forming. Keep building the data.",
         3: "You're almost halfway. The more data, the sharper the insights.",
         4: "Day 4! Consistency is where Signal gets powerful.",
@@ -46,6 +46,21 @@ def build_reminder_html(day_number, user_name=""):
         7: "Final day of the trial! Complete today to unlock your weekly pattern report.",
     }
     msg = encouragement.get(day_number, "Keep the streak going — your data is building something useful.")
+
+    cta_text = "Start your first check-in" if day_number == 1 else "Log today's check-in"
+    subject_line = "Welcome to Signal — start your first check-in" if day_number == 1 else None
+
+    what_to_expect = ""
+    if day_number == 1:
+        what_to_expect = """
+      <div style="margin:20px 0 0 0;padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+        <p style="color:#a3a3a3;font-size:12px;line-height:1.6;margin:0;">
+          <span style="color:#e5e5e5;font-weight:500;">Here's how it works:</span><br>
+          Log 3 things daily — sleep, energy, and a quick reflection.<br>
+          Signal spots patterns you can't see yourself.<br>
+          After 7 days, you unlock your full weekly performance report.
+        </p>
+      </div>"""
 
     return f"""
 <!DOCTYPE html>
@@ -64,13 +79,13 @@ def build_reminder_html(day_number, user_name=""):
       <p style="color:#e5e5e5;font-size:15px;margin:0 0 6px 0;">{greeting},</p>
       <p style="color:#a3a3a3;font-size:14px;line-height:1.6;margin:0 0 20px 0;">
         {msg}
-      </p>
+      </p>{what_to_expect}
       <p style="color:#737373;font-size:12px;margin:0 0 24px 0;">
         Day {day_number} of 7 &nbsp;·&nbsp; {'🟢' * min(day_number - 1, 7)}{'⚫' * max(0, 7 - day_number + 1)}
       </p>
       <div style="text-align:center;">
         <a href="{app_url}/checkin" style="display:inline-block;background:white;color:black;font-size:13px;font-weight:500;padding:10px 28px;border-radius:999px;text-decoration:none;">
-          Log today's check-in
+          {cta_text}
         </a>
       </div>
     </div>
@@ -151,7 +166,10 @@ class handler(BaseHTTPRequestHandler):
                     user_name = user_name.split()[0]
 
             try:
-                subject = f"Day {day_number}/7 — Time for your check-in"
+                if day_number == 1:
+                    subject = "Welcome to Signal — start your first check-in"
+                else:
+                    subject = f"Day {day_number}/7 — Time for your check-in"
                 html = build_reminder_html(day_number, user_name)
                 send_email(email, subject, html)
                 sent += 1
