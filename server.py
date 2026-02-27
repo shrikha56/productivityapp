@@ -502,6 +502,75 @@ def submit_feedback():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/send-reminders", methods=["GET"])
+def send_reminders():
+    cron_secret = os.environ.get("CRON_SECRET", "")
+    auth = request.headers.get("Authorization", "")
+    if cron_secret and auth != f"Bearer {cron_secret}":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    supabase = get_supabase()
+    if not supabase:
+        return jsonify({"error": "Server not configured"}), 503
+
+    resend_key = os.environ.get("RESEND_API_KEY", "")
+    if not resend_key:
+        return jsonify({"error": "RESEND_API_KEY not set"}), 503
+
+    sr_mod = importlib.import_module("api.send-reminders")
+    from datetime import date as _date
+
+    today = _date.today().isoformat()
+
+    try:
+        users_resp = supabase.auth.admin.list_users()
+        users = users_resp if isinstance(users_resp, list) else getattr(users_resp, 'users', [])
+    except Exception as e:
+        return jsonify({"error": f"Failed to list users: {e}"}), 500
+
+    sent, skipped, errors = 0, 0, []
+
+    for user in users:
+        user_id = user.id if hasattr(user, 'id') else user.get('id')
+        email = user.email if hasattr(user, 'email') else user.get('email')
+        if not user_id or not email:
+            continue
+
+        try:
+            result = supabase.table("entries").select("id, date").eq(
+                "user_id", user_id).order("date", desc=True).limit(30).execute()
+            entries = result.data or []
+        except Exception:
+            entries = []
+
+        if any(e.get("date") == today for e in entries):
+            skipped += 1
+            continue
+
+        unique_dates = set(e.get("date") for e in entries if e.get("date"))
+        day_number = len(unique_dates) + 1
+        if day_number > 7:
+            skipped += 1
+            continue
+
+        user_name = ""
+        meta = user.user_metadata if hasattr(user, 'user_metadata') else user.get('user_metadata', {})
+        if meta:
+            user_name = meta.get("full_name", "") or meta.get("name", "")
+            if user_name:
+                user_name = user_name.split()[0]
+
+        try:
+            subject = "Welcome to Signal — start your first check-in" if day_number == 1 else f"Day {day_number}/7 — Time for your check-in"
+            html = sr_mod.build_reminder_html(day_number, user_name)
+            sr_mod.send_email(email, subject, html)
+            sent += 1
+        except Exception as e:
+            errors.append(f"{email}: {e}")
+
+    return jsonify({"ok": True, "sent": sent, "skipped": skipped, "errors": errors[:10]})
+
+
 def _fallback_clarify(text: str) -> list:
     """Return simple clarifying questions when GPT is not available."""
     t = text.lower()
