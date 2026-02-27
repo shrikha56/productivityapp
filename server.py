@@ -648,6 +648,9 @@ def send_invites():
           Create your account
         </a>
       </div>
+      <p style="color:#737373;font-size:12px;line-height:1.6;margin:18px 0 0 0;text-align:center;">
+        Want to help build Signal into a great product? <a href="https://calendly.com/shrikha56" style="color:#e5e5e5;text-decoration:underline;">Book a meeting</a>
+      </p>
     </div>
     <p style="color:#525252;font-size:11px;text-align:center;margin-top:24px;">
       You're receiving this because you signed up for Signal's 7-day trial.
