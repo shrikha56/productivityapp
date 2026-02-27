@@ -19,32 +19,27 @@ def get_supabase():
 
 
 def send_email(to_email, subject, html_body):
-    import urllib.request
-    import urllib.error
+    import http.client
     api_key = os.environ.get("RESEND_API_KEY", "")
     if not api_key:
         raise RuntimeError("RESEND_API_KEY not set")
-    from_addr = "Signal <noreply@signal-au.com>"
     payload = json.dumps({
-        "from": from_addr,
+        "from": "Signal <noreply@signal-au.com>",
         "to": [to_email],
         "subject": subject,
         "html": html_body,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-    )
-    try:
-        resp = urllib.request.urlopen(req, timeout=10)
-        return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Resend {e.code}: {body}")
+    })
+    conn = http.client.HTTPSConnection("api.resend.com", timeout=15)
+    conn.request("POST", "/emails", body=payload, headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    })
+    resp = conn.getresponse()
+    body = resp.read().decode("utf-8", errors="replace")
+    conn.close()
+    if resp.status >= 400:
+        raise RuntimeError(f"Resend {resp.status}: {body}")
+    return json.loads(body)
 
 
 def build_reminder_html(day_number, user_name=""):
