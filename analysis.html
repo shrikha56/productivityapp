@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analysis — Signal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/signal.css?v=2">
+  <style>
+    svg.chart { display: block; width: 100%; overflow: visible; }
+    .tip {
+      position: absolute;
+      background: rgba(10,10,14,.95);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      color: #e5e5e5;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .15s;
+      white-space: nowrap;
+      z-index: 100;
+    }
+    .tab-btn {
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: transparent;
+      color: #737373;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .tab-btn.active {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.2);
+      color: #e5e5e5;
+    }
+    .tab-btn:hover:not(.active) { color: #d4d4d4; border-color: rgba(255,255,255,0.12); }
+    .hm-cell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      cursor: default;
+      transition: transform 0.15s;
+    }
+    .hm-cell:hover { transform: scale(1.15); z-index: 10; }
+    .bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+  </style>
+</head>
+<body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
+  <div class="noise-bg"></div>
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
+
+  <nav class="relative z-10 w-full max-w-5xl mx-auto px-6 py-6 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black rounded-full"></div></div>
+      <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
+    </a>
+    <div class="flex items-center gap-4">
+      <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
+      <a href="/analysis" class="text-xs font-medium text-white transition-colors">Analysis</a>
+      <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
+      <a id="nav-report-link" href="/report/weekly" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Report</a>
+      <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
+    </div>
+  </nav>
+
+  <main class="relative z-10 max-w-5xl mx-auto px-6 pb-24">
+    <!-- Loading -->
+    <div id="loading" class="text-center py-20">
+      <div class="inline-block w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-3"></div>
+      <p class="text-sm text-neutral-400">Loading your data…</p>
+    </div>
+    <!-- Empty -->
+    <div id="empty" class="hidden text-center py-20">
+      <p class="text-[10px] uppercase tracking-widest font-medium text-neutral-500 mb-3">No data yet</p>
+      <p class="text-sm text-neutral-400 mb-6">Complete a check-in to see your performance charts.</p>
+      <a href="/checkin" class="inline-block px-5 py-2.5 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">Go to check-in</a>
+    </div>
+    <!-- Dashboard -->
+    <div id="dashboard" class="hidden">
+      <header class="mb-6">
+        <h1 class="text-2xl font-medium text-white tracking-tight">Analysis</h1>
+        <p class="text-xs text-neutral-500 mt-1">Your performance metrics at a glance.</p>
+      </header>
+
+      <!-- Top row: score + metrics -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <!-- Score ring -->
+        <div class="glass-card rounded-2xl p-6">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Today</span>
+          <div class="flex items-end gap-4 mt-3">
+            <svg id="daily-ring" width="80" height="80" viewBox="0 0 80 80"></svg>
+            <div class="pb-1">
+              <div id="daily-delta" class="text-xs font-medium px-2 py-0.5 rounded-full bg-white/5 text-neutral-400 inline-block">—</div>
+              <p class="text-[10px] text-neutral-600 mt-1">vs yesterday</p>
+            </div>
+          </div>
+          <p id="daily-label" class="text-lg font-semibold text-white mt-3">—</p>
+          <p id="daily-detail" class="text-xs text-neutral-500 mt-0.5">—</p>
+        </div>
+        <!-- Metric cards -->
+        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Avg Sleep</span>
+          <p id="m-sleep" class="text-2xl font-semibold text-white mt-2">—</p>
+          <div class="bar-track mt-3"><div class="bar-fill" id="bar-sleep" style="width:0%;background:rgba(255,255,255,0.3)"></div></div>
+        </div>
+        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Avg Energy</span>
+          <p id="m-energy" class="text-2xl font-semibold text-white mt-2">—</p>
+          <div class="bar-track mt-3"><div class="bar-fill" id="bar-energy" style="width:0%;background:rgba(255,255,255,0.3)"></div></div>
+        </div>
+        <div class="glass-card rounded-2xl p-6 flex flex-col justify-between">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Deep Work</span>
+          <p id="m-deep" class="text-2xl font-semibold text-white mt-2">—</p>
+          <div class="bar-track mt-3"><div class="bar-fill" id="bar-deep" style="width:0%;background:rgba(255,255,255,0.3)"></div></div>
+        </div>
+      </div>
+
+      <!-- Performance line chart -->
+      <div class="glass-card rounded-2xl p-6 mb-4" id="chart-card">
+        <div class="flex justify-between items-start mb-4">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Performance Score</span>
+          <div class="flex gap-1">
+            <button class="tab-btn active" data-range="7d">7D</button>
+            <button class="tab-btn" data-range="30d">30D</button>
+          </div>
+        </div>
+        <div class="relative">
+          <svg id="line-svg" class="chart" height="180" viewBox="0 0 800 180" preserveAspectRatio="none"></svg>
+          <div class="tip" id="tip"></div>
+        </div>
+        <div id="x-labels" class="flex justify-between mt-2"></div>
+        <!-- Prediction (3+ days) -->
+        <div id="prediction-section" class="hidden mt-6 pt-6 border-t border-white/10">
+          <p class="text-xs text-neutral-500 mb-2">7-Day Projection</p>
+          <p class="text-[10px] text-neutral-600 mb-3">Green = if you follow AI suggestions · Red = if issues continue</p>
+          <div class="relative">
+            <svg id="prediction-svg" class="chart" height="120" viewBox="0 0 800 120" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="flex gap-4 mt-2 text-[10px] text-neutral-500">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-white/50"></span>Actual</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-emerald-400/80"></span>Following suggestions</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-red-400/80"></span>Status quo</span>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Bottom row: daily trend + heatmap + sleep/energy -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <!-- Daily trend bars -->
+        <div class="glass-card rounded-2xl p-6">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Daily Trend · This Week</span>
+          <div id="week-bars" class="mt-4 space-y-1.5"></div>
+        </div>
+        <!-- Quality heatmap -->
+        <div class="glass-card rounded-2xl p-6">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Quality Heatmap · 4 Weeks</span>
+          <div class="grid grid-cols-7 gap-1 mt-4 mb-1">
+            <span class="text-[8px] text-neutral-600 text-center">M</span>
+            <span class="text-[8px] text-neutral-600 text-center">T</span>
+            <span class="text-[8px] text-neutral-600 text-center">W</span>
+            <span class="text-[8px] text-neutral-600 text-center">T</span>
+            <span class="text-[8px] text-neutral-600 text-center">F</span>
+            <span class="text-[8px] text-neutral-600 text-center">S</span>
+            <span class="text-[8px] text-neutral-600 text-center">S</span>
+          </div>
+          <div class="grid grid-cols-7 gap-1" id="heatmap"></div>
+          <div class="flex items-center gap-2 mt-4">
+            <span class="text-[10px] text-neutral-600">Low</span>
+            <div class="flex gap-1">
+              <div class="w-3 h-3 rounded-sm" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="w-3 h-3 rounded-sm" style="background:rgba(255,255,255,0.10)"></div>
+              <div class="w-3 h-3 rounded-sm" style="background:rgba(255,255,255,0.20)"></div>
+              <div class="w-3 h-3 rounded-sm" style="background:rgba(255,255,255,0.35)"></div>
+            </div>
+            <span class="text-[10px] text-neutral-600">High</span>
+          </div>
+        </div>
+        <!-- Key metrics list -->
+        <div class="glass-card rounded-2xl p-6">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Key Metrics · Week</span>
+          <div class="mt-4 space-y-3">
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-neutral-300 flex-1">Sleep Quality</span>
+              <div class="w-20 bar-track"><div class="bar-fill" id="bar-quality" style="width:0%;background:rgba(255,255,255,0.3)"></div></div>
+              <span class="text-xs text-neutral-500 w-10 text-right tabular-nums" id="val-quality">—</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-neutral-300 flex-1">Avg Sleep</span>
+              <div class="w-20 bar-track"><div class="bar-fill" id="bar-sleep2" style="width:0%;background:rgba(255,255,255,0.3)"></div></div>
+              <span class="text-xs text-neutral-500 w-10 text-right tabular-nums" id="val-sleep">—</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-neutral-300 flex-1">Avg Energy</span>
+              <div class="w-20 bar-track"><div class="bar-fill" id="bar-energy2" style="width:0%;background:rgba(255,255,255,0.3)"></div></div>
+              <span class="text-xs text-neutral-500 w-10 text-right tabular-nums" id="val-energy">—</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-neutral-300 flex-1">Deep Work</span>
+              <div class="w-20 bar-track"><div class="bar-fill" id="bar-deep2" style="width:0%;background:rgba(255,255,255,0.3)"></div></div>
+              <span class="text-xs text-neutral-500 w-10 text-right tabular-nums" id="val-deep">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sleep & Energy dual chart -->
+      <div class="glass-card rounded-2xl p-6">
+        <div class="flex justify-between items-center mb-4">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Sleep & Energy · Last 14 Days</span>
+          <div class="flex gap-4 text-[11px] text-neutral-500">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-white/40"></span>Sleep (h)</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-yellow-400/50"></span>Energy</span>
+          </div>
+        </div>
+        <svg id="multi-svg" class="chart" height="120" viewBox="0 0 900 120" preserveAspectRatio="none"></svg>
+      </div>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="/checkin" class="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">New check-in</a>
+        <a id="report-link" href="/report/weekly" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">Weekly report</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+  (function() {
+    const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
+    const isDemo = new URLSearchParams(location.search).has('demo');
+
+    const DEMO_ENTRIES = [
+      {date:'2026-02-17',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
+      {date:'2026-02-18',sleep_hours:7.5,sleep_quality:3,energy:3,deep_work_blocks:1},
+      {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:2},
+      {date:'2026-02-20',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
+      {date:'2026-02-21',sleep_hours:8,sleep_quality:4,energy:3,deep_work_blocks:1},
+      {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2},
+      {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:3,deep_work_blocks:1}
+    ];
+
+    let chartData = [];
+
+    document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+
+    if (isDemo) {
+      document.getElementById('loading').classList.add('hidden');
+      chartData = DEMO_ENTRIES.slice().sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      document.getElementById('dashboard').classList.remove('hidden');
+      document.getElementById('report-link').href = '/report/weekly?demo=true';
+      document.getElementById('nav-report-link').href = '/report/weekly?demo=true';
+      document.querySelector('header h1').textContent = 'Analysis';
+      document.querySelector('header p').textContent = 'Demo: sample performance metrics.';
+      requestAnimationFrame(() => renderAll());
+    } else {
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session) { window.location.href = '/login'; return; }
+        loadData(session.access_token);
+      });
+    }
+
+    function byDateFirstEntry(entries) {
+      const byDate = {};
+      entries.forEach(e => {
+        const d = e.date;
+        if (!byDate[d] || (e.entry_number === 1) || (!e.entry_number && !byDate[d].entry_number)) byDate[d] = e;
+      });
+      return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function computeScore(e) {
+      if (!e) return 0;
+      return Math.round(((e.sleep_quality || 3) / 5) * 35 + Math.min((e.sleep_hours || 0) / 8, 1) * 25 + ((e.energy || 3) / 5) * 25 + ((e.deep_work_blocks || 0) / 5) * 15);
+    }
+
+    function renderPrediction(slice) {
+      const scores = slice.map(computeScore);
+      const lastScore = scores[scores.length - 1];
+      const trend = scores.length >= 2 ? (lastScore - scores[scores.length - 2]) : 0;
+      const greenProj = [Math.min(100, lastScore + 8), Math.min(100, lastScore + 16), Math.min(100, lastScore + 24)];
+      const redProj = [Math.max(0, lastScore + (trend < 0 ? -5 : -2)), Math.max(0, lastScore + (trend < 0 ? -10 : -4)), Math.max(0, lastScore + (trend < 0 ? -15 : -6))];
+      const totalPoints = scores.length + 3;
+      const svg = document.getElementById('prediction-svg');
+      const W = 800, H = 140, pad = { left: 28, right: 36, top: 14, bottom: 20 };
+      const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
+      const xStep = totalPoints > 1 ? iW / (totalPoints - 1) : iW;
+      const px = i => pad.left + i * xStep;
+      const py = v => pad.top + iH - (v / 100) * iH;
+      const actualPath = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
+      const greenPath = 'M' + [lastScore, ...greenProj].map((v, i) => `${px(scores.length - 1 + i)},${py(v)}`).join(' L');
+      const redPath = 'M' + [lastScore, ...redProj].map((v, i) => `${px(scores.length - 1 + i)},${py(v)}`).join(' L');
+      const greenEnd = greenProj[greenProj.length - 1];
+      const redEnd = redProj[redProj.length - 1];
+      const lastProjIdx = scores.length - 1 + 3;
+      svg.setAttribute('viewBox', '0 0 800 140');
+      svg.setAttribute('height', '140');
+      svg.innerHTML = `
+        <path d="${actualPath}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+        <path d="${greenPath}" fill="none" stroke="rgba(52,211,153,0.8)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+        <path d="${redPath}" fill="none" stroke="rgba(248,113,113,0.8)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+        ${scores.map((v, i) => `
+          <circle cx="${px(i)}" cy="${py(v)}" r="2.5" fill="white"/>
+          <text x="${px(i)}" y="${py(v) - 8}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9" font-family="Inter,system-ui,sans-serif">${v}</text>
+        `).join('')}
+        <circle cx="${px(lastProjIdx)}" cy="${py(greenEnd)}" r="3" fill="rgba(52,211,153,0.9)"/>
+        <text x="${px(lastProjIdx) + 8}" y="${py(greenEnd) + 3}" fill="rgba(52,211,153,0.9)" font-size="10" font-weight="500" font-family="Inter,system-ui,sans-serif">${greenEnd}</text>
+        <circle cx="${px(lastProjIdx)}" cy="${py(redEnd)}" r="3" fill="rgba(248,113,113,0.9)"/>
+        <text x="${px(lastProjIdx) + 8}" y="${py(redEnd) + 3}" fill="rgba(248,113,113,0.9)" font-size="10" font-weight="500" font-family="Inter,system-ui,sans-serif">${redEnd}</text>
+      `;
+    }
+
+    async function loadData(token) {
+      try {
+        const r = await fetch('/api/entries', { headers: { 'Authorization': 'Bearer ' + token } });
+        const j = await r.json();
+        if (!r.ok || !j.data) { showEmpty(); return; }
+        chartData = byDateFirstEntry(j.data);
+        document.getElementById('loading').classList.add('hidden');
+        if (!chartData.length) { showEmpty(); return; }
+        document.getElementById('dashboard').classList.remove('hidden');
+        renderAll();
+      } catch (e) { showEmpty(); }
+    }
+
+    function showEmpty() {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('empty').classList.remove('hidden');
+    }
+
+    function renderAll() {
+      renderDaily();
+      renderLineChart('7d');
+      renderKeyMetrics();
+      renderWeekBars();
+      renderHeatmap();
+      renderMultiChart();
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderLineChart(btn.dataset.range);
+        };
+      });
+    }
+
+    function renderDaily() {
+      const latest = chartData[chartData.length - 1];
+      if (!latest) return;
+      const score = computeScore(latest);
+      const prev = chartData.length >= 2 ? chartData[chartData.length - 2] : null;
+      const delta = score - (prev ? computeScore(prev) : score);
+
+      const R = 34, circ = 2 * Math.PI * R, pct = Math.min(100, Math.max(0, score)) / 100;
+      document.getElementById('daily-ring').innerHTML = `
+        <circle cx="40" cy="40" r="${R}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+        <circle cx="40" cy="40" r="${R}" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="6"
+          stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - pct)}"
+          stroke-linecap="round" transform="rotate(-90 40 40)"
+          style="transition:stroke-dashoffset 1.2s ease;"/>
+        <text x="40" y="44" text-anchor="middle" fill="white" font-family="Inter,sans-serif" font-size="20" font-weight="600">${score}</text>
+      `;
+
+      const el = document.getElementById('daily-delta');
+      el.textContent = delta >= 0 ? '↑ +' + delta : '↓ ' + delta;
+      el.className = 'text-xs font-medium px-2 py-0.5 rounded-full inline-block ' + (delta >= 0 ? 'bg-emerald-500/10 text-emerald-400/80' : 'bg-red-500/10 text-red-400/80');
+
+      document.getElementById('daily-label').textContent = score >= 80 ? 'Great' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Low';
+      document.getElementById('daily-detail').textContent = (latest.sleep_hours ?? '—') + 'h sleep · ' + (latest.deep_work_blocks ?? 0) + ' deep work blocks';
+    }
+
+    function renderLineChart(range) {
+      const n = range === '7d' ? 7 : 30;
+      const slice = chartData.slice(-n);
+      if (slice.length < 2) return;
+
+      const scores = slice.map(computeScore);
+      const labels = slice.map(e => {
+        const d = new Date(e.date + 'T12:00:00');
+        return range === '7d' ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] : d.getDate() + '';
+      });
+
+      const svg = document.getElementById('line-svg');
+      const W = 800, H = 180, pad = { top: 10, right: 10, bottom: 20, left: 28 };
+      const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
+      const xStep = iW / (scores.length - 1);
+      const px = i => pad.left + i * xStep;
+      const py = v => pad.top + iH - (v / 100) * iH;
+
+      let pathD = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
+      let areaD = pathD + ` L${px(scores.length - 1)},${pad.top + iH} L${px(0)},${pad.top + iH} Z`;
+
+      let grid = '';
+      for (let v = 20; v <= 100; v += 20) {
+        grid += `<line x1="${pad.left}" y1="${py(v)}" x2="${W - pad.right}" y2="${py(v)}" stroke="rgba(255,255,255,0.04)"/>`;
+        grid += `<text x="${pad.left - 6}" y="${py(v) + 3}" text-anchor="end" fill="#525252" font-size="9" font-family="Inter,sans-serif">${v}</text>`;
+      }
+
+      svg.innerHTML = `
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="white" stop-opacity="0.12"/><stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient></defs>
+        ${grid}
+        <path d="${areaD}" fill="url(#lg)"/>
+        <path d="${pathD}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        ${scores.map((v, i) => `<circle class="dot-pt" cx="${px(i)}" cy="${py(v)}" r="3.5" fill="white" stroke="#050505" stroke-width="2" data-i="${i}" data-v="${v}" data-date="${slice[i].date}" style="cursor:pointer"/>`).join('')}
+      `;
+
+      document.getElementById('x-labels').innerHTML = labels.map(l =>
+        `<span class="text-[9px] text-neutral-600">${l}</span>`
+      ).join('');
+
+      // Prediction (3+ days)
+      if (slice.length >= 3) {
+        document.getElementById('prediction-section').classList.remove('hidden');
+        renderPrediction(slice);
+      } else {
+        document.getElementById('prediction-section').classList.add('hidden');
+      }
+
+      const tip = document.getElementById('tip');
+      const cardRect = document.getElementById('chart-card').getBoundingClientRect();
+      svg.querySelectorAll('.dot-pt').forEach(dot => {
+        dot.addEventListener('mouseenter', ev => {
+          const i = parseInt(dot.dataset.i), e = slice[i];
+          tip.innerHTML = `<strong class="text-white block">${dot.dataset.date}</strong>Score: ${dot.dataset.v} · ${e.sleep_hours ?? '—'}h · ${e.deep_work_blocks ?? 0} blocks`;
+          tip.style.left = (ev.clientX - cardRect.left + 12) + 'px';
+          tip.style.top = (ev.clientY - cardRect.top - 44) + 'px';
+          tip.style.opacity = '1';
+        });
+        dot.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+      });
+    }
+
+    function renderKeyMetrics() {
+      const slice = chartData.slice(-7);
+      const cnt = slice.length;
+      let ts = 0, tq = 0, te = 0, td = 0;
+      slice.forEach(e => { ts += e.sleep_hours ?? 0; tq += e.sleep_quality ?? 3; te += e.energy ?? 3; td += e.deep_work_blocks ?? 0; });
+
+      const avgS = (ts / cnt).toFixed(1), avgQ = (tq / cnt).toFixed(1), avgE = (te / cnt).toFixed(1);
+      document.getElementById('m-sleep').textContent = avgS + 'h';
+      document.getElementById('m-energy').textContent = avgE + '/5';
+      document.getElementById('m-deep').textContent = td + ' blocks';
+
+      document.getElementById('bar-sleep').style.width = (Math.min(1, ts / cnt / 9) * 100) + '%';
+      document.getElementById('bar-energy').style.width = ((te / cnt) / 5 * 100) + '%';
+      document.getElementById('bar-deep').style.width = Math.min(100, td / (cnt * 3) * 100) + '%';
+
+      document.getElementById('bar-sleep2').style.width = (Math.min(1, ts / cnt / 9) * 100) + '%';
+      document.getElementById('bar-quality').style.width = ((tq / cnt) / 5 * 100) + '%';
+      document.getElementById('bar-energy2').style.width = ((te / cnt) / 5 * 100) + '%';
+      document.getElementById('bar-deep2').style.width = Math.min(100, td / (cnt * 3) * 100) + '%';
+
+      document.getElementById('val-sleep').textContent = avgS + 'h';
+      document.getElementById('val-quality').textContent = avgQ + '/5';
+      document.getElementById('val-energy').textContent = avgE + '/5';
+      document.getElementById('val-deep').textContent = td;
+    }
+
+    function renderWeekBars() {
+      const slice = chartData.slice(-7);
+      const dayL = ['S','M','T','W','T','F','S'];
+      const el = document.getElementById('week-bars');
+      el.innerHTML = '';
+      for (let i = 0; i < slice.length; i++) {
+        const e = slice[i];
+        const score = computeScore(e);
+        const label = dayL[new Date(e.date + 'T12:00:00').getDay()];
+        el.innerHTML += `
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-neutral-600 w-3 text-center">${label}</span>
+            <div class="flex-1 h-1.5 rounded bg-white/5 overflow-hidden">
+              <div class="h-full rounded bg-white/30" style="width:${score}%;transition:width .6s"></div>
+            </div>
+            <span class="text-[10px] text-neutral-500 w-5 text-right tabular-nums">${score}</span>
+          </div>
+        `;
+      }
+    }
+
+    function renderHeatmap() {
+      const pal = ['rgba(255,255,255,0.04)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.20)', 'rgba(255,255,255,0.35)'];
+      const total = 28, slice = chartData.slice(-total);
+      const el = document.getElementById('heatmap');
+      el.innerHTML = '';
+      for (let i = 0; i < total; i++) {
+        const e = slice[i] || null;
+        const score = e ? computeScore(e) : 0;
+        const idx = e ? Math.min(3, Math.floor(score / 25)) : 0;
+        el.innerHTML += `<div class="hm-cell" style="background:${pal[idx]}" title="${e ? e.date + ': ' + score : '—'}"></div>`;
+      }
+    }
+
+    function renderMultiChart() {
+      const slice = chartData.slice(-14);
+      if (slice.length < 2) return;
+      const svg = document.getElementById('multi-svg');
+      const W = 900, H = 120, pad = { left: 30, right: 10, top: 8, bottom: 16 };
+      const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
+      const xStep = iW / (slice.length - 1);
+      const px = i => pad.left + i * xStep;
+      const sleepV = slice.map(e => Math.min(10, e.sleep_hours ?? 0));
+      const energyV = slice.map(e => ((e.energy ?? 3) / 5) * 10);
+      const pyS = v => pad.top + iH - (v / 10) * iH;
+
+      const sPath = sleepV.map((v, i) => `${i ? 'L' : 'M'}${px(i)},${pyS(v)}`).join(' ');
+      const ePath = energyV.map((v, i) => `${i ? 'L' : 'M'}${px(i)},${pyS(v)}`).join(' ');
+
+      svg.innerHTML = `
+        <defs>
+          <linearGradient id="gs" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="white" stop-opacity="0.1"/><stop offset="100%" stop-color="white" stop-opacity="0"/></linearGradient>
+          <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#eab308" stop-opacity="0.1"/><stop offset="100%" stop-color="#eab308" stop-opacity="0"/></linearGradient>
+        </defs>
+        <path d="${sPath} L${px(slice.length-1)},${H-pad.bottom} L${px(0)},${H-pad.bottom} Z" fill="url(#gs)"/>
+        <path d="${ePath} L${px(slice.length-1)},${H-pad.bottom} L${px(0)},${H-pad.bottom} Z" fill="url(#ge)"/>
+        <path d="${sPath}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="${ePath}" fill="none" stroke="rgba(234,179,8,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+        ${sleepV.map((v, i) => `<circle cx="${px(i)}" cy="${pyS(v)}" r="2" fill="white" stroke="#050505" stroke-width="1"/>`).join('')}
+        ${energyV.map((v, i) => `<circle cx="${px(i)}" cy="${pyS(v)}" r="2" fill="#eab308" stroke="#050505" stroke-width="1"/>`).join('')}
+      `;
+    }
+
+  })();
+  </script>
+</body>
+</html>

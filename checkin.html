@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Check-In — Signal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/signal.css?v=2">
+</head>
+<body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
+  <div class="noise-bg"></div>
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
+
+  <nav class="relative z-10 w-full max-w-2xl mx-auto px-6 py-6 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black rounded-full"></div></div>
+      <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
+    </a>
+    <div class="flex items-center gap-4">
+      <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
+      <a href="/report/weekly" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Report</a>
+      <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
+      <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
+    </div>
+  </nav>
+
+  <main class="relative z-10 max-w-2xl mx-auto px-6 pb-24">
+    <header class="mb-8">
+      <h1 class="text-sm font-medium text-neutral-500 uppercase tracking-widest">Today</h1>
+      <p id="day-label" class="text-xl font-medium text-white mt-1">Today</p>
+    </header>
+
+    <form id="checkin-form" class="space-y-8">
+      <!-- 3 Daily Anchors (hidden for follow-up entries) -->
+      <section id="anchors-section" class="glass-card rounded-2xl p-6">
+        <h2 class="text-xs font-medium text-neutral-500 uppercase tracking-widest mb-6">3 Daily Anchors</h2>
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-white mb-2">1. Sleep</label>
+            <div class="flex gap-4 items-center">
+              <div class="flex-1">
+                <span class="text-xs text-neutral-500">Hours</span>
+                <input type="number" name="sleep_hours" min="0" max="24" step="0.5" value="7" required
+                  class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-white/30 outline-none">
+              </div>
+              <div class="flex-1">
+                <span class="text-xs text-neutral-500">Quality (1–5)</span>
+                <input type="range" name="sleep_quality" min="1" max="5" value="3" class="w-full mt-1 accent-white/80">
+                <span id="sleep-quality-val" class="text-xs text-neutral-400">3</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-white mb-2">2. Energy</label>
+            <input type="range" name="energy" min="1" max="5" value="3" class="w-full accent-white/80">
+            <span id="energy-val" class="text-xs text-neutral-400">3</span>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-white mb-2">3. Deep Work</label>
+            <p class="text-[10px] text-neutral-500 mb-2">45–90 min focused sessions on your most important task.</p>
+            <input type="range" name="deep_work_blocks" min="0" max="5" value="1" class="w-full accent-white/80">
+            <div class="flex justify-between text-xs text-neutral-500 mt-1">
+              <span>0</span>
+              <span id="deep-work-val" class="text-neutral-400">1 block</span>
+              <span>5</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Follow-up banner (shown when adding second+ entry of the day) -->
+      <section id="followup-banner" class="hidden glass-card rounded-2xl p-5">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-2 h-2 rounded-full bg-white/60"></div>
+          <h2 class="text-sm font-medium text-white">Follow-up entry</h2>
+        </div>
+        <p class="text-xs text-neutral-400">Your sleep, energy, and deep work are already logged for today. Just reflect on what happened since your last check-in.</p>
+      </section>
+
+      <!-- Reflection - Voice Assistant UI -->
+      <section class="relative">
+        <div class="voice-glow absolute inset-x-0 -bottom-20 h-32 pointer-events-none"></div>
+        <div class="voice-card relative rounded-2xl p-6 sm:p-8">
+          <div class="mb-4">
+            <h2 class="text-xs font-medium text-neutral-400 uppercase tracking-widest">Reflect on your day</h2>
+          </div>
+          <div class="flex gap-2 mb-4">
+            <button type="button" id="tab-voice" class="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium">Voice</button>
+            <button type="button" id="tab-type" class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors">Type</button>
+          </div>
+
+          <div id="quick-chips" class="flex flex-wrap gap-2 mb-4 hidden">
+            <!-- Default chips (learned chips appended by JS) -->
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="poor sleep">poor sleep</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="snacking">snacking</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="stomach pain">stomach pain</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="low energy">low energy</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="anxious">anxious</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="unfocused">unfocused</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="good sleep">good sleep</button>
+            <button type="button" class="chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors" data-word="productive">productive</button>
+          </div>
+
+          <!-- Type mode -->
+          <div id="type-area" class="hidden space-y-4">
+            <div class="min-h-[80px]">
+              <textarea name="transcript" id="transcript-input" rows="3" placeholder="Start typing… How did you sleep? What are you feeling? What did you attempt?"
+                class="w-full bg-transparent border-0 px-0 py-2 text-sm text-white placeholder-neutral-500 focus:ring-0 outline-none resize-none"></textarea>
+              <p id="live-preview" class="text-sm text-neutral-300 min-h-[1.25rem] mt-1"></p>
+            </div>
+            <div id="clarify-area" class="mt-4 pt-4 border-t border-white/10 space-y-3 min-h-[4rem]">
+              <p id="clarify-hint" class="text-xs text-neutral-500">Type 10+ characters for guiding questions</p>
+              <p id="clarify-label" class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium hidden">Questions to deepen your reflection</p>
+              <div id="clarify-questions" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <!-- Voice mode -->
+          <div id="voice-area" class="">
+            <p id="voice-guiding-questions" class="text-xs text-neutral-500 mb-3">How did you sleep? What are you feeling? What did you attempt?</p>
+            <div class="min-h-[60px] mb-4">
+              <p id="voice-preview" class="text-sm text-neutral-300 min-h-[1.25rem]"></p>
+            </div>
+            <div id="waveform" class="w-full mb-6">
+              <canvas id="waveCanvas" class="wave-canvas"></canvas>
+            </div>
+            <div class="flex flex-col items-center gap-3">
+              <div class="flex items-center gap-4">
+                <button type="button" id="record-btn" class="mic-btn">
+                  <iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>
+                </button>
+                <button type="button" id="pause-btn" class="mic-btn hidden" style="width:42px;height:42px;">
+                  <iconify-icon icon="solar:pause-linear" width="20" height="20"></iconify-icon>
+                </button>
+              </div>
+              <span id="record-label" class="text-xs text-neutral-500">Tap to record</span>
+              <span id="record-timer" class="text-xs text-neutral-500 tabular-nums hidden">0:00</span>
+            </div>
+            <div id="transcript-preview" class="mt-4 p-3 rounded-lg glass-nested text-sm text-neutral-300 whitespace-pre-line hidden"></div>
+            <div id="voice-post-record" class="mt-4 hidden">
+              <div id="voice-ai-prompt" class="p-3 rounded-xl border border-white/10 bg-white/[0.03] space-y-3">
+                <p class="text-xs text-neutral-300"><span class="text-white font-medium">Signal AI</span> can ask clarifying questions to strengthen your reflection.</p>
+                <div class="flex gap-2">
+                  <button type="button" id="ai-deepen-btn" class="flex-1 text-xs px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white font-medium hover:bg-white/15 transition-colors">Clarifying questions</button>
+                  <button type="button" id="skip-ai-btn" class="text-xs px-4 py-2.5 rounded-lg border border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white transition-colors">I'm done</button>
+                </div>
+              </div>
+              <div class="flex justify-center gap-3 mt-3">
+                <button type="button" id="start-over-btn" class="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-neutral-500 hover:bg-white/5 hover:text-white transition-colors">Start over</button>
+                <button type="button" id="add-more-btn" class="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-neutral-500 hover:bg-white/5 hover:text-white transition-colors">Record more</button>
+              </div>
+            </div>
+            <div id="voice-clarify-area" class="mt-4 pt-4 border-t border-white/10 space-y-3 hidden">
+              <p id="voice-clarify-label" class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">Questions to deepen your reflection</p>
+              <div id="voice-clarify-questions" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <button type="submit" id="generate-btn" class="w-full bg-white hover:bg-neutral-200 text-black text-sm font-medium py-3.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+        Generate Today's Signal
+      </button>
+    </form>
+  </main>
+
+  <!-- Plan more reflections modal (initial entry only) -->
+  <div id="plan-more-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="voice-card max-w-sm w-full rounded-2xl p-6 shadow-xl">
+      <h3 class="text-sm font-medium text-white mb-2">Multiple reflections today?</h3>
+      <p class="text-sm text-neutral-400 mb-6">If you plan to add more reflections later, we'll wait to generate your analysis until you're done. This ensures the report is based on your full day.</p>
+      <div class="flex gap-3">
+        <button type="button" id="plan-more-no" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors">No, this is it</button>
+        <button type="button" id="plan-more-yes" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">Yes, I'll add more</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Is last reflection modal (follow-up only) -->
+  <div id="last-reflection-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="voice-card max-w-sm w-full rounded-2xl p-6 shadow-xl">
+      <h3 class="text-sm font-medium text-white mb-2">Last reflection for today?</h3>
+      <p class="text-sm text-neutral-400 mb-6">Generate your report now using all your reflections from today (including this one)?</p>
+      <div class="flex gap-3">
+        <button type="button" id="last-no" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">No, I'll add more</button>
+        <button type="button" id="last-yes" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors">Yes, generate report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Missing topic modal -->
+  <div id="missing-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="voice-card max-w-sm w-full rounded-2xl p-6 shadow-xl">
+      <h3 id="missing-title" class="text-sm font-medium text-white mb-2"></h3>
+      <p id="missing-body" class="text-sm text-neutral-400 mb-6"></p>
+      <div id="missing-questions" class="space-y-2 mb-6"></div>
+      <div class="flex gap-3">
+        <button type="button" id="missing-back" class="flex-1 py-2.5 rounded-lg border border-white/10 text-neutral-400 text-sm hover:bg-white/5 hover:text-white transition-colors">Go back</button>
+        <button type="button" id="missing-proceed" class="flex-1 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors hidden">Yes, generate</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (function() {
+    const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
+
+    let _authToken = null;
+    async function getAuthHeaders() {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.access_token) _authToken = session.access_token;
+      return _authToken ? { 'Authorization': 'Bearer ' + _authToken } : {};
+    }
+    async function authFetch(url, opts = {}) {
+      const ah = await getAuthHeaders();
+      opts.headers = { ...(opts.headers || {}), ...ah };
+      return fetch(url, opts);
+    }
+
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (!session) window.location.href = '/login';
+      if (session?.access_token) _authToken = session.access_token;
+    });
+    fetch('/api/test-gpt').then(r => r.json()).then(d => {
+      if (!d.ok) {
+        const b = document.createElement('div');
+        b.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-200 text-sm';
+        b.textContent = 'Analysis unavailable: ' + (d.error || 'Check OPENAI_API_KEY in .env');
+        document.body.appendChild(b);
+        setTimeout(() => b.remove(), 8000);
+      }
+    });
+
+    document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+
+    const DEFAULT_CHIPS = ['poor sleep','snacking','stomach pain','low energy','anxious','unfocused','good sleep','productive'];
+    const STOP_WORDS = new Set('the a an of to in for on with at by is are was were be been being have has had do does did will would could should may might can must i me my myself we our and or but if then so it its that this'.split(' '));
+
+    function extractLearnedChips(entries) {
+      const text = (entries || [])
+        .map(e => (e.reflection_summary || '').trim())
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .replace(/[^a-z\s'-]/g, ' ');
+      if (!text.trim()) return [];
+      const words = text.split(/\s+/).filter(w => w.length >= 2 && !STOP_WORDS.has(w));
+      const counts = {};
+      words.forEach(w => { counts[w] = (counts[w] || 0) + 1; });
+      for (let i = 0; i < words.length - 1; i++) {
+        const bigram = words[i] + ' ' + words[i + 1];
+        if (words[i].length >= 2 && words[i+1].length >= 2 && !STOP_WORDS.has(words[i]) && !STOP_WORDS.has(words[i+1])) {
+          counts[bigram] = (counts[bigram] || 0) + 1;
+        }
+      }
+      const sorted = Object.entries(counts)
+        .filter(([w]) => w.length >= 3 && !DEFAULT_CHIPS.includes(w))
+        .sort((a, b) => b[1] - a[1]);
+      return sorted.slice(0, 6).map(([w]) => w);
+    }
+
+    function addLearnedChips(words) {
+      if (!words || !words.length) return;
+      const container = document.getElementById('quick-chips');
+      const existing = new Set([...container.querySelectorAll('.chip-btn')].map(b => (b.dataset.word || b.textContent).trim().toLowerCase()));
+      words.forEach(w => {
+        const key = w.toLowerCase();
+        if (existing.has(key)) return;
+        existing.add(key);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip-btn px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-xs hover:bg-white/10 hover:text-white transition-colors';
+        btn.dataset.word = w;
+        btn.textContent = w;
+        btn.onclick = () => {
+          const ta = document.getElementById('transcript-input');
+          const cur = ta.value.trim();
+          ta.value = cur ? cur + '. ' + w : w;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          updateChipSelection();
+        };
+        container.appendChild(btn);
+      });
+      updateChipSelection();
+    }
+
+    let isFollowUp = false;
+    (async () => {
+      try {
+        const ah = await getAuthHeaders();
+        const resp = await fetch('/api/entries/today', { headers: ah });
+        const json = await resp.json();
+        if (json.count > 0) {
+          isFollowUp = true;
+          document.getElementById('anchors-section').classList.add('hidden');
+          document.getElementById('followup-banner').classList.remove('hidden');
+          document.querySelector('[name="sleep_hours"]').removeAttribute('required');
+          document.getElementById('day-label').textContent = 'Entry ' + (json.count + 1) + ' today';
+          document.getElementById('generate-btn').textContent = "Add Follow-up";
+        } else {
+          const uniqueDays = json.unique_days ?? 0;
+          const dayNum = Math.min(uniqueDays + 1, 7);
+          document.getElementById('day-label').textContent = 'Day ' + dayNum + ' of 7';
+        }
+        try {
+          const entriesResp = await fetch('/api/entries', { headers: ah });
+          const entriesJson = await entriesResp.json();
+          if (entriesJson.data && entriesJson.data.length >= 2) {
+            const learned = extractLearnedChips(entriesJson.data);
+            addLearnedChips(learned);
+          }
+        } catch(e) { /* vocab learning optional */ }
+      } catch(e) { console.error('Failed to check today entries', e); }
+    })();
+
+    document.querySelector('[name="sleep_quality"]').oninput = (e) => { document.getElementById('sleep-quality-val').textContent = e.target.value; };
+    document.querySelector('[name="energy"]').oninput = (e) => { document.getElementById('energy-val').textContent = e.target.value; };
+    document.querySelector('[name="deep_work_blocks"]').oninput = (e) => { document.getElementById('deep-work-val').textContent = e.target.value + (e.target.value === '1' ? ' block' : ' blocks'); };
+
+    const TAB_ACTIVE = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
+    const TAB_INACTIVE = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
+
+    const CHIP_WORDS = ['poor sleep','snacking','stomach pain','low energy','anxious','unfocused','good sleep','productive'];
+    function updateChipSelection() {
+      const text = document.getElementById('transcript-input').value.toLowerCase();
+      document.querySelectorAll('.chip-btn').forEach(btn => {
+        const word = btn.textContent.trim().toLowerCase();
+        const selected = text.includes(word);
+        btn.classList.toggle('bg-white/15', selected);
+        btn.classList.toggle('text-white', selected);
+        btn.classList.toggle('border-white/30', selected);
+        btn.classList.toggle('bg-white/5', !selected);
+        btn.classList.toggle('text-neutral-400', !selected);
+      });
+    }
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.onclick = () => {
+        const ta = document.getElementById('transcript-input');
+        const add = btn.textContent.trim();
+        const cur = ta.value.trim();
+        ta.value = cur ? cur + '. ' + add : add;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        updateChipSelection();
+      };
+    });
+
+    document.getElementById('tab-type').onclick = () => {
+      document.getElementById('type-area').classList.remove('hidden');
+      document.getElementById('voice-area').classList.add('hidden');
+      document.getElementById('quick-chips').classList.remove('hidden');
+      document.getElementById('tab-type').className = TAB_ACTIVE;
+      document.getElementById('tab-voice').className = TAB_INACTIVE;
+      if (window.waveAnim) window.waveAnim.pause();
+    };
+    document.getElementById('tab-voice').onclick = () => {
+      document.getElementById('voice-area').classList.remove('hidden');
+      document.getElementById('type-area').classList.add('hidden');
+      document.getElementById('quick-chips').classList.add('hidden');
+      document.getElementById('tab-voice').className = TAB_ACTIVE;
+      document.getElementById('tab-type').className = TAB_INACTIVE;
+      if (window.waveAnim) window.waveAnim.resume();
+    };
+
+    function updateChipSelection() {
+      const text = (document.getElementById('transcript-input').value || '').toLowerCase();
+      document.querySelectorAll('.chip-btn').forEach(btn => {
+        const word = (btn.dataset.word || btn.textContent || '').trim().toLowerCase();
+        const selected = word && text.includes(word);
+        btn.classList.toggle('bg-white/15', selected);
+        btn.classList.toggle('text-white', selected);
+        btn.classList.toggle('border-white/30', selected);
+        btn.classList.toggle('bg-white/5', !selected);
+        btn.classList.toggle('text-neutral-400', !selected);
+      });
+    }
+
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.onclick = () => {
+        const ta = document.getElementById('transcript-input');
+        const word = btn.dataset.word || btn.textContent.trim();
+        const cur = ta.value.trim();
+        ta.value = cur ? cur + '. ' + word : word;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        updateChipSelection();
+      };
+    });
+
+    function getFallbackQuestions(text) {
+      const t = text.toLowerCase();
+      const questions = [];
+      if (/\b(blue|down|bothered|sad|low|dont feel okay|don't feel)\b/.test(t)) questions.push("How did that affect your energy for work today?");
+      if (/\b(unproductive|unfocused|wasted|sat the whole day)\b/.test(t)) questions.push('What got in the way of feeling productive today?');
+      if (/\b(tired|exhausted|drained|low energy)\b/.test(t)) questions.push('How did you sleep last night?');
+      if (/\b(interrupted|noise|loud|woke up)\b/.test(t)) questions.push('What might have affected your sleep quality?');
+      if (/\b(fight|argument|bf|boyfriend|girlfriend|conflict)\b/.test(t)) questions.push('How did that affect your energy today?');
+      if (/\b(unsure|confused|bored|unmotivated|not sure)\b/.test(t)) questions.push('What did you attempt today that mattered to you?');
+      if (/\b(stress|anxious|overwhelmed|stuck)\b/.test(t)) questions.push('What got in the way of your focus?');
+      if (/\b(sleep|slept|rest|woke|wake)\b/.test(t) && !questions.some(q => q.includes('sleep'))) questions.push('What might have affected your sleep quality?');
+      if (questions.length === 0) questions.push('What got in the way of your best work today?');
+      return questions.slice(0, 2);
+    }
+
+    function renderQuestions(questions, el, label, hint) {
+      el.innerHTML = '';
+      if (!questions.length) return;
+      label.classList.remove('hidden');
+      hint.classList.add('hidden');
+      questions.forEach(q => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'text-left text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors';
+        btn.textContent = q;
+        btn.onclick = () => {
+          const ta = document.getElementById('transcript-input');
+          ta.value = (ta.value.trim() + ' ' + q).trim();
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        el.appendChild(btn);
+      });
+    }
+
+    let clarifyDebounce;
+    let clarifyAbort = null;
+    const clarifyHint = document.getElementById('clarify-hint');
+    document.getElementById('transcript-input').addEventListener('input', (e) => {
+      const text = e.target.value.trim();
+      document.getElementById('live-preview').textContent = text ? text + '…' : '';
+      updateChipSelection();
+      const el = document.getElementById('clarify-questions');
+      const label = document.getElementById('clarify-label');
+      if (clarifyAbort) clarifyAbort.abort();
+      el.innerHTML = '';
+      label.classList.add('hidden');
+      if (text.length < 15) {
+        clarifyHint.textContent = 'Type 15+ characters for AI questions';
+        clarifyHint.classList.remove('hidden');
+        return;
+      }
+      const fallback = getFallbackQuestions(text);
+      renderQuestions(fallback, el, label, clarifyHint);
+      clearTimeout(clarifyDebounce);
+      clarifyDebounce = setTimeout(async () => {
+        const snapshot = text;
+        clarifyAbort = new AbortController();
+        el.innerHTML = '';
+        label.classList.add('hidden');
+        clarifyHint.textContent = 'Getting AI questions…';
+        clarifyHint.classList.remove('hidden');
+        try {
+          const r = await authFetch('/api/clarify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+            signal: clarifyAbort.signal
+          });
+          const data = await r.json();
+          const { questions, source, error } = data;
+          console.log('[clarify]', source || 'unknown', questions?.length || 0, error ? `(${error})` : '');
+          const current = document.getElementById('transcript-input').value.trim();
+          if (questions && questions.length && snapshot === current) {
+            renderQuestions(questions, el, label, clarifyHint);
+          } else if (snapshot === current) {
+            clarifyHint.textContent = 'Type 15+ characters for AI questions';
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError' && snapshot === document.getElementById('transcript-input').value.trim()) {
+            renderQuestions(getFallbackQuestions(snapshot), el, label, clarifyHint);
+          }
+        }
+        clarifyAbort = null;
+      }, 280);
+    });
+
+
+    /* ── Voice-reactive waveform + recording ── */
+    (function initVoiceSystem() {
+      const canvas = document.getElementById('waveCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let rafId, paused = true;
+
+      /* Audio analysis state — driven by mic when recording */
+      let audioCtx, analyser, dataArray;
+      let audioLevel = 0;        // 0–1 smoothed mic loudness
+      const SMOOTHING = 0.06;    // lower = smoother, more fluid
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, rect.width * dpr);
+        canvas.height = Math.max(1, rect.height * dpr);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+      }
+
+      const waves = [
+        { color: [255, 255, 255], speed: 1.8, freq: 1.4, phase: 0,   amp: 1.0,  lw: 2.2, op: 1.0  },
+        { color: [120, 180, 255], speed: 1.2, freq: 1.1, phase: 0.8, amp: 0.75, lw: 1.6, op: 0.85 },
+        { color: [90,  150, 255], speed: 2.2, freq: 1.8, phase: 1.6, amp: 0.55, lw: 1.4, op: 0.7  },
+        { color: [140, 190, 255], speed: 0.9, freq: 0.9, phase: 2.5, amp: 0.45, lw: 1.2, op: 0.55 },
+        { color: [70,  130, 255], speed: 1.5, freq: 2.2, phase: 3.2, amp: 0.35, lw: 1.0, op: 0.45 },
+      ];
+
+      const IDLE_SCALE = 0.55;   // visible idle breathing
+      const ACTIVE_SCALE = 1.0;  // full amplitude when loud
+
+      function sampleMic() {
+        if (!analyser || !dataArray) return;
+        analyser.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const v = (dataArray[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const target = Math.min(rms * 2.2, 1);
+        // Asymmetric smoothing: rise gently, fall even more gently
+        const rate = target > audioLevel ? SMOOTHING : SMOOTHING * 0.5;
+        audioLevel += (target - audioLevel) * rate;
+      }
+
+      function drawWave(wave, elapsed, scale) {
+        const W = canvas.getBoundingClientRect().width;
+        const H = canvas.getBoundingClientRect().height;
+        if (W <= 0 || H <= 0) return;
+        const cx = W / 2, cy = H / 2;
+        const maxAmp = H * 0.32 * wave.amp * scale;
+        const points = [];
+        const steps = 200;
+        for (let i = 0; i <= steps; i++) {
+          const x = (i / steps) * W;
+          const nx = (x - cx) / cx;
+          const envelope = Math.pow(1 - Math.abs(nx), 1.2) * Math.sin(Math.PI * (i / steps));
+          const y = cy
+            + Math.sin(nx * Math.PI * wave.freq + elapsed * wave.speed + wave.phase) * maxAmp * envelope
+            + Math.sin(nx * Math.PI * wave.freq * 1.7 + elapsed * wave.speed * 1.3 + wave.phase + 1) * maxAmp * 0.3 * envelope;
+          points.push([x, y]);
+        }
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length - 1; i++) {
+          const mx = (points[i][0] + points[i+1][0]) / 2;
+          const my = (points[i][1] + points[i+1][1]) / 2;
+          ctx.quadraticCurveTo(points[i][0], points[i][1], mx, my);
+        }
+        ctx.lineTo(points[points.length-1][0], points[points.length-1][1]);
+        const [r, g, b] = wave.color;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.op * Math.max(scale, 0.55)})`;
+        ctx.lineWidth = wave.lw;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = `rgba(${r},${g},${b},${Math.max(0.35, 0.6 * scale)})`;
+        ctx.shadowBlur = Math.max(5, 10 * scale);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      let lastTime = 0, elapsed = 0;
+      let isRecording = false;
+
+      function animate(now) {
+        if (paused) return;
+        const dt = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+        elapsed += dt;
+        const W = canvas.getBoundingClientRect().width;
+        const H = canvas.getBoundingClientRect().height;
+        ctx.clearRect(0, 0, W, H);
+
+        if (isRecording) sampleMic();
+        else audioLevel *= 0.95; // decay when not recording
+
+        const breath = 0.5 + 0.5 * Math.sin(elapsed * 0.8);
+        const scale = isRecording
+          ? IDLE_SCALE + (ACTIVE_SCALE - IDLE_SCALE) * audioLevel
+          : IDLE_SCALE * (0.6 + 0.4 * breath);
+
+        const speedMult = isRecording ? 1 + audioLevel * 0.6 : 0.8;
+        waves.forEach(w => {
+          const origSpeed = w.speed;
+          w.speed = origSpeed * speedMult;
+          drawWave(w, elapsed, scale);
+          w.speed = origSpeed;
+        });
+        rafId = requestAnimationFrame(animate);
+      }
+
+      window.waveAnim = {
+        resume() {
+          if (paused) {
+            paused = false;
+            resize();
+            lastTime = performance.now();
+            rafId = requestAnimationFrame(animate);
+          }
+        },
+        pause() {
+          paused = true;
+          if (rafId) cancelAnimationFrame(rafId);
+        },
+        setRecording(val) { isRecording = val; },
+        setMicPaused(val) { if (!val && isRecording) audioLevel *= 0.5; },
+        connectStream(stream) {
+          audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 512;
+          analyser.smoothingTimeConstant = 0.7;
+          dataArray = new Uint8Array(analyser.fftSize);
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
+        }
+      };
+      window.addEventListener('resize', resize);
+    })();
+
+    // Voice is the default tab — start animation on load
+    if (window.waveAnim) window.waveAnim.resume();
+
+    /* ── Recording logic ── */
+    let activeRecorder = null;
+    let activeStream = null;
+    let recordingTimer = null;
+    let recordingStart = 0;
+    let pausedElapsed = 0;
+    let isPaused = false;
+    const MAX_RECORDING_MS = 180000;
+
+    function resetRecordBtn() {
+      const btn = document.getElementById('record-btn');
+      const label = document.getElementById('record-label');
+      const timer = document.getElementById('record-timer');
+      const pauseBtn = document.getElementById('pause-btn');
+      btn.dataset.recording = '';
+      btn.classList.remove('recording');
+      btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+      label.textContent = 'Tap to record';
+      timer.classList.add('hidden');
+      pauseBtn.classList.add('hidden');
+      isPaused = false;
+      pausedElapsed = 0;
+      if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+      if (window.waveAnim) window.waveAnim.setRecording(false);
+    }
+
+    function showPostRecordUI() {
+      document.getElementById('voice-post-record').classList.remove('hidden');
+      document.getElementById('voice-ai-prompt').classList.remove('hidden');
+      document.getElementById('record-btn').parentElement.parentElement.classList.add('hidden');
+      document.getElementById('waveform').classList.add('hidden');
+    }
+    function hidePostRecordUI() {
+      document.getElementById('voice-post-record').classList.add('hidden');
+      document.getElementById('record-btn').parentElement.parentElement.classList.remove('hidden');
+      document.getElementById('waveform').classList.remove('hidden');
+    }
+
+    function formatTime(ms) {
+      const s = Math.floor(ms / 1000);
+      return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    async function handleTranscriptionResult(data, append) {
+      if (data.error) { alert(data.error); return; }
+      if (!data.transcript) return;
+      const newText = data.transcript;
+      const ta = document.getElementById('transcript-input');
+      const prev = document.getElementById('transcript-preview');
+
+      if (append && ta.value.trim()) {
+        ta.value = ta.value.trim() + ' ' + newText;
+      } else {
+        ta.value = newText;
+      }
+      const full = ta.value;
+      prev.textContent = full;
+      prev.classList.remove('hidden');
+      document.getElementById('voice-preview').textContent = full.slice(0, 120) + (full.length > 120 ? '…' : '');
+      document.getElementById('voice-guiding-questions').classList.toggle('hidden', !!full.trim());
+      updateChipSelection();
+      showPostRecordUI();
+    }
+
+    function showVoiceClarify(questions) {
+      const vcArea = document.getElementById('voice-clarify-area');
+      const vcQuestions = document.getElementById('voice-clarify-questions');
+      vcQuestions.innerHTML = '';
+      if (!questions.length) return;
+      vcArea.classList.remove('hidden');
+      questions.forEach(q => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'text-left text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors';
+        chip.textContent = q;
+        chip.onclick = () => {
+          // Show the question as a prompt — user can record their answer
+          document.getElementById('voice-preview').textContent = q;
+          document.getElementById('voice-guiding-questions').classList.add('hidden');
+          chip.classList.add('border-white/30', 'text-white', 'bg-white/10');
+          chip.disabled = true;
+        };
+        vcQuestions.appendChild(chip);
+      });
+    }
+
+    // Start over — clear everything
+    document.getElementById('start-over-btn').onclick = () => {
+      document.getElementById('transcript-input').value = '';
+      document.getElementById('transcript-preview').textContent = '';
+      document.getElementById('transcript-preview').classList.add('hidden');
+      document.getElementById('voice-preview').textContent = '';
+      document.getElementById('voice-guiding-questions').classList.remove('hidden');
+      document.getElementById('voice-clarify-area').classList.add('hidden');
+      document.getElementById('voice-clarify-questions').innerHTML = '';
+      hidePostRecordUI();
+    };
+
+    // Add more — record additional audio and append
+    document.getElementById('add-more-btn').onclick = () => {
+      hidePostRecordUI();
+      document.getElementById('voice-clarify-area').classList.add('hidden');
+      document.getElementById('voice-clarify-questions').innerHTML = '';
+      document.getElementById('record-btn').click();
+    };
+
+    // Deepen with AI — fetch clarifying questions
+    document.getElementById('ai-deepen-btn').onclick = async () => {
+      const full = document.getElementById('transcript-input').value || '';
+      document.getElementById('voice-ai-prompt').classList.add('hidden');
+      const vcArea = document.getElementById('voice-clarify-area');
+      const vcQuestions = document.getElementById('voice-clarify-questions');
+      vcQuestions.innerHTML = '<p class="text-xs text-neutral-500 animate-pulse">Generating questions...</p>';
+      vcArea.classList.remove('hidden');
+      if (full.length >= 10) {
+        const fallback = getFallbackQuestions(full);
+        showVoiceClarify(fallback);
+        try {
+          const r = await authFetch('/api/clarify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: full })
+          });
+          const cData = await r.json();
+          if (cData.questions && cData.questions.length) showVoiceClarify(cData.questions);
+        } catch (e) { /* fallback already shown */ }
+      } else {
+        showVoiceClarify(['How did you sleep?', 'What are you feeling?', 'What did you attempt?']);
+      }
+    };
+
+    // Skip AI — dismiss prompt, ready to submit
+    document.getElementById('skip-ai-btn').onclick = () => {
+      document.getElementById('voice-ai-prompt').classList.add('hidden');
+    };
+
+    // Pause / resume
+    document.getElementById('pause-btn').onclick = () => {
+      const pauseBtn = document.getElementById('pause-btn');
+      const label = document.getElementById('record-label');
+      if (!activeRecorder) return;
+
+      if (!isPaused && activeRecorder.state === 'recording') {
+        activeRecorder.pause();
+        isPaused = true;
+        pausedElapsed += Date.now() - recordingStart;
+        if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+        pauseBtn.innerHTML = '<iconify-icon icon="solar:play-linear" width="20" height="20"></iconify-icon>';
+        label.textContent = 'Paused';
+        if (window.waveAnim) window.waveAnim.setRecording(false);
+      } else if (isPaused && activeRecorder.state === 'paused') {
+        activeRecorder.resume();
+        isPaused = false;
+        recordingStart = Date.now();
+        recordingTimer = setInterval(() => {
+          document.getElementById('record-timer').textContent = formatTime(pausedElapsed + Date.now() - recordingStart);
+        }, 500);
+        pauseBtn.innerHTML = '<iconify-icon icon="solar:pause-linear" width="20" height="20"></iconify-icon>';
+        label.textContent = 'Recording…';
+        if (window.waveAnim) window.waveAnim.setRecording(true);
+      }
+    };
+
+    // Track whether this recording should append
+    let appendMode = false;
+
+    document.getElementById('record-btn').onclick = async () => {
+      const btn = document.getElementById('record-btn');
+      const label = document.getElementById('record-label');
+      const timer = document.getElementById('record-timer');
+      const pauseBtn = document.getElementById('pause-btn');
+
+      // ── Stop recording ──
+      if (btn.dataset.recording === 'true') {
+        label.textContent = 'Transcribing…';
+        pauseBtn.classList.add('hidden');
+        if (activeRecorder && (activeRecorder.state === 'recording' || activeRecorder.state === 'paused')) {
+          activeRecorder.stop();
+        }
+        return;
+      }
+
+      // Check if we're appending (existing transcript)
+      appendMode = !!document.getElementById('transcript-input').value.trim();
+      hidePostRecordUI();
+
+      // ── Start recording ──
+      btn.dataset.recording = 'true';
+      btn.classList.add('recording');
+      btn.innerHTML = '<iconify-icon icon="solar:stop-circle-linear" width="26" height="26"></iconify-icon>';
+      label.textContent = 'Recording…';
+      timer.classList.remove('hidden');
+      timer.textContent = '0:00';
+      pauseBtn.classList.remove('hidden');
+      pauseBtn.innerHTML = '<iconify-icon icon="solar:pause-linear" width="20" height="20"></iconify-icon>';
+      isPaused = false;
+      pausedElapsed = 0;
+      recordingStart = Date.now();
+      recordingTimer = setInterval(() => {
+        timer.textContent = formatTime(pausedElapsed + Date.now() - recordingStart);
+      }, 500);
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        activeStream = stream;
+
+        if (window.waveAnim) {
+          window.waveAnim.connectStream(stream);
+          window.waveAnim.setRecording(true);
+        }
+
+        const recorder = new MediaRecorder(stream);
+        activeRecorder = recorder;
+        const chunks = [];
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+        recorder.onstop = async () => {
+          const shouldAppend = appendMode;
+          activeRecorder = null;
+          activeStream = null;
+          stream.getTracks().forEach(t => t.stop());
+          if (window.waveAnim) window.waveAnim.setRecording(false);
+          if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+
+          btn.innerHTML = '<iconify-icon icon="solar:microphone-3-linear" width="26" height="26"></iconify-icon>';
+          label.textContent = 'Transcribing…';
+
+          if (chunks.length === 0) { resetRecordBtn(); return; }
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const formData = new FormData();
+          formData.append('audio', blob);
+          try {
+            const r = await authFetch('/api/transcribe', { method: 'POST', body: formData });
+            const data = await r.json();
+            resetRecordBtn();
+            await handleTranscriptionResult(data, shouldAppend);
+          } catch (err) {
+            resetRecordBtn();
+            alert('Transcription failed. Please try again.');
+          }
+        };
+
+        recorder.start();
+
+        setTimeout(() => {
+          if (activeRecorder && activeRecorder.state === 'recording') {
+            activeRecorder.stop();
+          }
+        }, MAX_RECORDING_MS);
+
+      } catch (err) {
+        alert('Microphone access denied');
+        resetRecordBtn();
+      }
+    };
+
+    function clientFallbackCheck(text) {
+      const t = (text || '').toLowerCase();
+      const missing = [];
+      if (!/\b(sleep|slept|woke|wake|rest|nap|bed|hours?|asleep|morning|night|insomnia)\b/.test(t)) missing.push('How did you sleep?');
+      const hasFeelingPhrase = /\b(i feel|i felt|i'm feeling|i was feeling|my energy|my mood|felt very|felt so|felt more|felt like|felt really)\b/.test(t);
+      const hasFeelingWord = /\b(stressed|anxious|happy|sad|motivated|unmotivated|drained|bothered|down|low|tired|exhausted|sick|lethargic|energetic|unproductive|productive|groggy|heavy|okay|fine|great|calm|overwhelmed|frustrated)\b/.test(t);
+      if (!hasFeelingPhrase && !hasFeelingWord) missing.push('What are you feeling?');
+      if (!/\b(work|worked|tried|did|task|meeting|study|exercise|nothing|chilled|project|class|went|boss|homework|lecture|focus|app|code|coding)\b/.test(t)) missing.push('What did you attempt?');
+      return missing;
+    }
+    function countUniqueWords(text) {
+      return new Set(text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 2)).size;
+    }
+
+    let lastBiasWarning = null;
+    async function getMissingTopics(text) {
+      lastBiasWarning = null;
+      if (!text || text.trim().length < 5) return ['How did you sleep?', 'What are you feeling?', 'What did you attempt?'];
+      const clientMissing = clientFallbackCheck(text);
+      const uniqueWords = countUniqueWords(text);
+      if (uniqueWords >= 30 && clientMissing.length <= 1) return [];
+      try {
+        const r = await authFetch('/api/check-topics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text.trim() }) });
+        const data = await r.json();
+        if (data.bias_warning) lastBiasWarning = data.bias_warning;
+        if (r.ok && Array.isArray(data.missing)) return data.missing;
+        return clientMissing;
+      } catch (err) {
+        return clientMissing;
+      }
+    }
+
+    const missingModal = document.getElementById('missing-modal');
+    const missingTitle = document.getElementById('missing-title');
+    const missingBody = document.getElementById('missing-body');
+    const missingQuestions = document.getElementById('missing-questions');
+    const missingBack = document.getElementById('missing-back');
+    const missingProceed = document.getElementById('missing-proceed');
+    let pendingSubmit = null;
+
+    missingBack.onclick = () => {
+      missingModal.classList.add('hidden');
+      const ta = document.getElementById('transcript-input');
+      ta.focus();
+      pendingSubmit = null;
+    };
+    missingProceed.onclick = () => {
+      missingModal.classList.add('hidden');
+      if (pendingSubmit) submitPayload(pendingSubmit);
+      pendingSubmit = null;
+    };
+
+    const planMoreModal = document.getElementById('plan-more-modal');
+    const lastReflectionModal = document.getElementById('last-reflection-modal');
+    let pendingPlanPayload = null;
+
+    document.getElementById('plan-more-no').onclick = () => {
+      planMoreModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.plan_more_reflections = false;
+        proceedAfterPlanMore(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+    document.getElementById('plan-more-yes').onclick = () => {
+      planMoreModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.plan_more_reflections = true;
+        submitPayload(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+
+    document.getElementById('last-no').onclick = () => {
+      lastReflectionModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.is_last_reflection = false;
+        submitPayload(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+    document.getElementById('last-yes').onclick = () => {
+      lastReflectionModal.classList.add('hidden');
+      if (pendingPlanPayload) {
+        pendingPlanPayload.is_last_reflection = true;
+        submitPayload(pendingPlanPayload);
+      }
+      pendingPlanPayload = null;
+    };
+
+    const generateBtn = document.getElementById('generate-btn');
+
+    async function proceedAfterPlanMore(payload) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = 'Checking…';
+      const missing = await getMissingTopics(payload.transcript);
+      generateBtn.disabled = false;
+      generateBtn.textContent = "Generate Today's Signal";
+      if (missing.length > 0 || lastBiasWarning) {
+        missingQuestions.innerHTML = '';
+        if (lastBiasWarning) {
+          const biasHints = {
+            'mostly_positive': 'Your reflection focuses mainly on positives. Try adding: what challenged you today? Where did you lose focus or energy?',
+            'mostly_negative': 'Your reflection focuses mainly on negatives. Try adding: what went well, even slightly? What did you manage to do despite the difficulty?',
+            'off_topic': 'Your reflection seems to focus on external events. Try connecting it to your own performance: how did this affect your energy, focus, or output?',
+          };
+          const hint = biasHints[lastBiasWarning] || 'Try to balance your reflection with both challenges and wins.';
+          const d = document.createElement('div');
+          d.className = 'p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-xs mb-3';
+          d.textContent = hint;
+          missingQuestions.appendChild(d);
+        }
+        missing.forEach(q => {
+          const p = document.createElement('p');
+          p.className = 'text-sm text-neutral-300';
+          p.textContent = '→ ' + q;
+          missingQuestions.appendChild(p);
+        });
+        missingTitle.textContent = lastBiasWarning ? 'Your reflection could be more balanced' : 'Your reflection may be incomplete';
+        missingBody.textContent = lastBiasWarning && missing.length === 0 ? 'A balanced reflection helps generate more accurate analysis:' : 'We didn\u2019t find these in your reflection:';
+        missingProceed.classList.remove('hidden');
+        missingProceed.textContent = 'Continue anyway';
+        pendingSubmit = payload;
+        missingModal.classList.remove('hidden');
+        return;
+      }
+      submitPayload(payload);
+    }
+
+    async function submitPayload(payload) {
+      const saveOnly = payload.plan_more_reflections === true || payload.is_last_reflection === false;
+      generateBtn.disabled = true;
+      generateBtn.textContent = saveOnly ? 'Saving…' : 'Generating…';
+      try {
+        let r = await authFetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        let res = await r.json();
+        generateBtn.disabled = false;
+        generateBtn.textContent = isFollowUp ? 'Add Follow-up' : "Generate Today's Signal";
+        if (res.entry_id && r.ok) {
+          if (res.skipped_analysis || saveOnly) {
+            window.location.href = '/checkin';
+            return;
+          }
+          window.location.href = '/entry?id=' + res.entry_id;
+          return;
+        }
+        alert(res.error || 'Something went wrong');
+      } catch (err) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = isFollowUp ? 'Add Follow-up' : "Generate Today's Signal";
+        alert('Something went wrong');
+      }
+    }
+
+    document.getElementById('checkin-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (generateBtn.disabled) return;
+      const form = e.target;
+      const fd = new FormData(form);
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { window.location.href = '/login'; return; }
+      _authToken = session.access_token;
+      const payload = {
+        date: new Date().toISOString().slice(0, 10),
+        transcript: fd.get('transcript') || '',
+        is_follow_up: isFollowUp,
+      };
+      if (!isFollowUp) {
+        payload.sleep_hours = parseFloat(fd.get('sleep_hours'));
+        payload.sleep_quality = parseInt(fd.get('sleep_quality'));
+        payload.energy = parseInt(fd.get('energy'));
+        payload.deep_work_blocks = parseInt(fd.get('deep_work_blocks'));
+      }
+
+      if (isFollowUp) {
+        pendingPlanPayload = payload;
+        lastReflectionModal.classList.remove('hidden');
+      } else {
+        pendingPlanPayload = payload;
+        planMoreModal.classList.remove('hidden');
+      }
+    };
+    })();
+  </script>
+</body>
+</html>

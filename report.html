@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Report — Signal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/signal.css?v=3">
+  <style>
+    svg.chart { display: block; width: 100%; overflow: visible; min-height: 100px; }
+    #report-line-svg { min-height: 140px; }
+    #report-multi-svg { min-height: 100px; }
+    .bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+
+    /* Weekly Aura Orb */
+    .aura-scene { position: relative; display: flex; align-items: center; justify-content: center; height: 400px; }
+    .aura-ring { position: absolute; border-radius: 50%; background: transparent; border: 1px solid rgba(255,255,255,0.04); animation: auraRingPulse 6s ease-in-out infinite; }
+    .aura-ring-1 { width: 340px; height: 340px; }
+    .aura-ring-2 { width: 280px; height: 280px; border-color: rgba(255,255,255,0.06); animation-delay: -2s; }
+    .aura-glow { position: absolute; border-radius: 50%; filter: blur(48px); pointer-events: none; top: 50%; left: 50%; }
+    .aura-orb-wrap { width: 200px; height: 200px; position: relative; z-index: 2; animation: auraFloat 5s ease-in-out infinite; }
+    .aura-orb {
+      width: 100%; height: 100%; border-radius: 50%; position: relative;
+      overflow: hidden; background: #0a0a12;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.5), 0 20px 50px rgba(0,0,0,0.3), inset 0 -6px 20px rgba(0,0,0,0.2);
+    }
+    .orb-blob {
+      position: absolute; border-radius: 50%; pointer-events: none;
+    }
+    .aura-rim { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 24px rgba(0,0,0,0.35), inset 0 0 6px rgba(0,0,0,0.15); pointer-events: none; z-index: 3; }
+    @keyframes auraFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+    @keyframes auraRingPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.04); opacity: 1; } }
+    @keyframes blobDrift1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(12px, -8px) scale(1.05); } 66% { transform: translate(-6px, 10px) scale(0.97); } }
+    @keyframes blobDrift2 { 0%, 100% { transform: translate(0, 0) scale(1); } 40% { transform: translate(-10px, 12px) scale(1.03); } 70% { transform: translate(8px, -6px) scale(0.95); } }
+    @keyframes blobDrift3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(14px, 6px) scale(1.06); } }
+    @keyframes driftG1 { 0%, 100% { transform: translate(-50%,-50%) translate(-40px,30px); } 50% { transform: translate(-50%,-50%) translate(-55px,45px); } }
+    @keyframes driftG2 { 0%, 100% { transform: translate(-50%,-50%) translate(30px,-30px); } 50% { transform: translate(-50%,-50%) translate(45px,-15px); } }
+    @keyframes driftG3 { 0%, 100% { transform: translate(-50%,-50%) translate(-10px,-50px); } 50% { transform: translate(-50%,-50%) translate(10px,-60px); } }
+  </style>
+</head>
+<body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
+  <div class="noise-bg"></div>
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
+
+  <nav class="relative z-10 w-full max-w-3xl mx-auto px-6 py-6 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black rounded-full"></div></div>
+      <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
+    </a>
+    <div class="flex items-center gap-4">
+      <a href="/checkin" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Check-in</a>
+      <a href="/analysis" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Analysis</a>
+      <a href="/report/weekly" class="text-xs font-medium text-white transition-colors">Report</a>
+      <a href="/history" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">History</a>
+      <button id="logout" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Log out</button>
+    </div>
+  </nav>
+
+  <main class="relative z-10 max-w-3xl mx-auto px-6 pb-24">
+    <!-- Locked state -->
+    <div id="locked" class="glass-card rounded-2xl p-8 text-center">
+      <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+        <svg class="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+      </div>
+      <h2 class="text-sm font-medium text-white mb-2">Weekly Report Locked</h2>
+      <p class="text-sm text-neutral-400 mb-2">Complete 7 daily check-ins to unlock your weekly pattern report.</p>
+      <div class="flex justify-center gap-1.5 my-4" id="progress-dots"></div>
+      <p id="progress-text" class="text-xs text-neutral-500 mb-4"></p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="/checkin" class="inline-block px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Go to check-in</a>
+        <a href="/report/weekly?demo=true" class="inline-block px-4 py-2 rounded-lg border border-white/20 text-sm text-neutral-400 hover:text-white transition-colors">View demo report</a>
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading" class="hidden text-center py-16">
+      <div class="inline-block w-6 h-6 border-2 border-white/20 border-t-white/80 rounded-full animate-spin mb-3"></div>
+      <p class="text-sm text-neutral-400">Analyzing your week…</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" class="hidden glass-card rounded-2xl p-8 text-center">
+      <p class="text-sm text-neutral-400 mb-4" id="error-msg">Something went wrong.</p>
+      <button id="retry-btn" class="px-4 py-2 rounded-lg bg-white/10 text-sm text-white hover:bg-white/15 transition-colors">Try again</button>
+    </div>
+
+    <!-- Report content -->
+    <div id="report" class="hidden space-y-6">
+      <header class="mb-2">
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-medium text-white tracking-tight">Weekly Report</h1>
+          <span id="demo-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">Demo</span>
+        </div>
+        <p id="report-range" class="text-xs text-neutral-500 mt-1"></p>
+      </header>
+
+      <!-- Metrics bar -->
+      <div class="grid grid-cols-4 gap-3">
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-sleep" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Avg Sleep</p>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-quality" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Sleep Quality</p>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-energy" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Avg Energy</p>
+        </div>
+        <div class="glass-card rounded-xl p-4 text-center">
+          <p id="m-blocks" class="text-lg font-medium text-white">—</p>
+          <p class="text-[10px] text-neutral-500 uppercase tracking-wider mt-1">Deep Work</p>
+        </div>
+      </div>
+
+      <!-- Analysis dashboard -->
+      <section class="glass-card rounded-2xl p-6" id="analysis-dashboard">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week at a Glance</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          <div>
+            <p class="text-xs text-neutral-500 mb-3">Performance Score</p>
+            <p class="text-[10px] text-neutral-600 mb-2">Combined score from sleep hours, quality, energy & deep work blocks</p>
+            <div class="relative">
+              <svg id="report-line-svg" class="chart" height="140" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
+            </div>
+            <div id="report-x-labels" class="flex justify-between mt-2"></div>
+          </div>
+          <div>
+            <p class="text-xs text-neutral-500 mb-3">Daily Trend</p>
+            <div id="report-week-bars" class="space-y-2"></div>
+            <p class="text-[10px] text-neutral-600 mt-2">Bar length = performance score (0–100) from sleep, energy, quality & deep work</p>
+          </div>
+        </div>
+        <!-- Prediction (3+ days) -->
+        <div id="prediction-section" class="hidden mt-6 pt-6 border-t border-white/10">
+          <p class="text-xs text-neutral-500 mb-3">7-Day Projection</p>
+          <p class="text-[10px] text-neutral-600 mb-3">Based on your current trend: green = if you follow AI suggestions, red = if issues continue</p>
+          <div class="relative">
+            <svg id="prediction-svg" class="chart" height="120" viewBox="0 0 700 120" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="flex gap-4 mt-2 text-[10px] text-neutral-500">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-white/50"></span>Actual</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-emerald-400/80"></span>Following suggestions</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-0.5 rounded bg-red-400/80"></span>Status quo</span>
+          </div>
+        </div>
+        <div class="mt-6">
+          <p class="text-xs text-neutral-500 mb-3">Sleep & Energy</p>
+          <div class="flex gap-4 text-[10px] text-neutral-500 mb-2">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 rounded bg-white/40"></span>Sleep (h)</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-0.5 rounded bg-yellow-400/50"></span>Energy</span>
+          </div>
+          <svg id="report-multi-svg" class="chart" height="100" viewBox="0 0 700 100" preserveAspectRatio="none"></svg>
+        </div>
+      </section>
+
+      <!-- Week narrative -->
+      <section class="glass-card rounded-2xl p-6">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week Overview</span>
+        <p id="narrative" class="text-sm text-neutral-200 mt-3 whitespace-pre-line leading-relaxed"></p>
+      </section>
+
+      <!-- Recovery lag (optional) -->
+      <section id="recovery-lag-section" class="hidden glass-card rounded-2xl p-6 border border-amber-500/10">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-amber-400/80">Recovery Insight</span>
+        <p id="recovery-lag" class="text-sm text-neutral-200 mt-3"></p>
+      </section>
+
+      <!-- Recurring patterns -->
+      <section class="glass-card rounded-2xl p-6">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Recurring Patterns</span>
+        <ul id="patterns" class="mt-3 space-y-3"></ul>
+      </section>
+
+      <!-- Top derailers -->
+      <section class="glass-card rounded-2xl p-6 border border-red-500/10">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-red-400/70">Top Derailers</span>
+        <ul id="derailers" class="mt-3 space-y-3"></ul>
+      </section>
+
+      <!-- Bright spots -->
+      <section class="glass-card rounded-2xl p-6 border border-emerald-500/10">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-emerald-400/70">Bright Spots</span>
+        <ul id="bright-spots" class="mt-3 space-y-3"></ul>
+      </section>
+
+      <!-- Weekly experiment -->
+      <section class="glass-card rounded-2xl p-6 border border-yellow-500/20">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-yellow-400/80">Next Week's Experiment</span>
+        <div id="experiment" class="mt-3 space-y-3">
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Focus</p>
+            <p id="exp-focus" class="text-sm text-yellow-200/90 mt-1"></p>
+          </div>
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Protocol</p>
+            <p id="exp-protocol" class="text-sm text-neutral-300 mt-1"></p>
+          </div>
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Why This Works</p>
+            <p id="exp-mechanism" class="text-sm text-neutral-300 mt-1"></p>
+          </div>
+          <div>
+            <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Success Metric</p>
+            <p id="exp-metric" class="text-sm text-neutral-300 mt-1"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Micro shifts -->
+      <section class="glass-card rounded-2xl p-6">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Micro Shifts</span>
+        <p class="text-[10px] text-neutral-500 mt-1">Small daily adjustments to support the experiment</p>
+        <ul id="micro-shifts" class="mt-3 space-y-2"></ul>
+      </section>
+
+      <!-- Weekly Aura -->
+      <section id="aura-section" class="rounded-2xl p-6 text-center" style="background:rgba(8,8,14,0.85);border:1px solid rgba(255,255,255,0.04);overflow:hidden">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Your Week's Aura</span>
+        <p class="text-[10px] text-neutral-500 mt-1">A living snapshot of your week — shaped by sleep, energy, focus, and emotional tone.</p>
+        <div class="aura-scene mt-4">
+          <div id="aura-glow-1" class="aura-glow" style="width:180px;height:180px;transform:translate(-50%,-50%) translate(-40px,30px);animation:driftG1 8s ease-in-out infinite"></div>
+          <div id="aura-glow-2" class="aura-glow" style="width:140px;height:140px;transform:translate(-50%,-50%) translate(30px,-30px);animation:driftG2 10s ease-in-out infinite"></div>
+          <div id="aura-glow-3" class="aura-glow" style="width:100px;height:100px;transform:translate(-50%,-50%) translate(-10px,-50px);animation:driftG3 7s ease-in-out infinite"></div>
+          <div class="aura-ring aura-ring-1"></div>
+          <div class="aura-ring aura-ring-2"></div>
+          <div class="aura-orb-wrap">
+            <div id="aura-orb" class="aura-orb">
+              <div id="orb-blobs"></div>
+              <div class="aura-rim"></div>
+            </div>
+          </div>
+        </div>
+        <p id="aura-label" class="text-sm text-neutral-300 mt-2 font-medium"></p>
+        <p id="aura-desc" class="text-xs text-neutral-500 mt-1"></p>
+        <div id="aura-legend" class="mt-5 flex flex-col gap-2 items-center"></div>
+        <p class="text-[10px] text-neutral-600 mt-4 italic">"My week looked like this."</p>
+      </section>
+
+      <div class="flex flex-wrap gap-3 pt-2">
+        <a href="/checkin" class="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">New check-in</a>
+        <a id="full-analysis-link" href="/analysis" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">Full analysis</a>
+        <a href="/history" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">View history</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (function() {
+    const sb = window.supabase.createClient('https://xmxzunophhboyfidicof.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY');
+    const params = new URLSearchParams(location.search);
+    const isDemo = params.has('demo');
+    const demoVariant = params.get('v') || 'balanced';
+
+    const DEMO_VARIANTS = {
+      balanced: {
+        label: 'Feb 17–23, 2026 (balanced week)',
+        narrative: 'A week of moderate ups and downs. Sleep was inconsistent but energy held steady. Some deep work sessions kept focus alive.',
+        patterns: ['Sleep variance impacted morning energy','Afternoon deep work was most productive'],
+        derailers: ['Inconsistent bedtime','Skipped meals on busy days'],
+        bright_spots: ['Two solid deep-work sessions','Good recovery on weekend'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-18',sleep_hours:7.5,sleep_quality:3,energy:3,deep_work_blocks:1},
+          {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:2},
+          {date:'2026-02-20',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-21',sleep_hours:8,sleep_quality:4,energy:3,deep_work_blocks:1},
+          {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2},
+          {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:3,deep_work_blocks:1}
+        ]
+      },
+      stress: {
+        label: 'Feb 17–23, 2026 (high-stress week)',
+        narrative: 'A rough week dominated by stress and friction. Sleep was poor and inconsistent, energy crashed mid-week, and deep work was nearly impossible. Anxiety and overwhelm were recurring themes.',
+        patterns: ['Stress kept building without release','Sleep deprivation compounded irritability'],
+        derailers: ['Overwhelm from deadlines','Late-night screen time','Skipping exercise'],
+        bright_spots: ['Managed one calm evening walk on Friday'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:4.5,sleep_quality:1,energy:2,deep_work_blocks:0},
+          {date:'2026-02-18',sleep_hours:5,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-19',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-20',sleep_hours:4,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-21',sleep_hours:5,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-22',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:1},
+          {date:'2026-02-23',sleep_hours:5.5,sleep_quality:2,energy:2,deep_work_blocks:0}
+        ]
+      },
+      focus: {
+        label: 'Feb 17–23, 2026 (deep-focus week)',
+        narrative: 'An exceptional week of deep focus and concentration. Stable sleep fueled immersive deep work sessions. You were in flow state multiple days — productive, engaged, and progressing steadily.',
+        patterns: ['Consistent 7.5+ hours of sleep','Deep work blocks every single day'],
+        derailers: ['Slight fatigue by Thursday from intensity'],
+        bright_spots: ['Flow state on three consecutive days','Highest deep-work output this month','Sleep consistency was excellent'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:3},
+          {date:'2026-02-18',sleep_hours:8,sleep_quality:5,energy:5,deep_work_blocks:4},
+          {date:'2026-02-19',sleep_hours:7.5,sleep_quality:5,energy:5,deep_work_blocks:4},
+          {date:'2026-02-20',sleep_hours:7,sleep_quality:4,energy:4,deep_work_blocks:3},
+          {date:'2026-02-21',sleep_hours:8,sleep_quality:5,energy:5,deep_work_blocks:5},
+          {date:'2026-02-22',sleep_hours:8,sleep_quality:5,energy:4,deep_work_blocks:3},
+          {date:'2026-02-23',sleep_hours:7.5,sleep_quality:4,energy:4,deep_work_blocks:2}
+        ]
+      },
+      energy: {
+        label: 'Feb 17–23, 2026 (high-energy week)',
+        narrative: 'A high-energy week with strong momentum. You felt energized and active throughout. Sleep was decent though not perfect, but energy levels stayed consistently high. Enthusiasm drove action.',
+        patterns: ['Morning energy peaks drove early productivity','Social energy boosted mood'],
+        derailers: ['Slight overstimulation by evening','Could have channeled energy into deeper focus'],
+        bright_spots: ['Consistently high energy all week','Strong motivation and enthusiasm','Active lifestyle choices'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:7,sleep_quality:3,energy:5,deep_work_blocks:1},
+          {date:'2026-02-18',sleep_hours:6.5,sleep_quality:3,energy:5,deep_work_blocks:1},
+          {date:'2026-02-19',sleep_hours:7,sleep_quality:4,energy:5,deep_work_blocks:2},
+          {date:'2026-02-20',sleep_hours:6.5,sleep_quality:3,energy:4,deep_work_blocks:1},
+          {date:'2026-02-21',sleep_hours:7,sleep_quality:4,energy:5,deep_work_blocks:1},
+          {date:'2026-02-22',sleep_hours:7.5,sleep_quality:4,energy:5,deep_work_blocks:2},
+          {date:'2026-02-23',sleep_hours:7,sleep_quality:3,energy:4,deep_work_blocks:1}
+        ]
+      },
+      fatigue: {
+        label: 'Feb 17–23, 2026 (burnout week)',
+        narrative: 'A week of deep fatigue and low reserves. Energy was drained, sleep was insufficient, and everything felt sluggish. The body and mind were signaling hard for rest and recovery.',
+        patterns: ['Exhaustion accumulated day over day','Low sleep hours with poor quality'],
+        derailers: ['Chronic under-sleeping','No exercise or movement','Lethargy prevented deep work'],
+        bright_spots: ['Recognized the need to slow down by weekend'],
+        entries: [
+          {date:'2026-02-17',sleep_hours:5,sleep_quality:2,energy:1,deep_work_blocks:0},
+          {date:'2026-02-18',sleep_hours:5.5,sleep_quality:2,energy:1,deep_work_blocks:0},
+          {date:'2026-02-19',sleep_hours:4.5,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-20',sleep_hours:5,sleep_quality:1,energy:1,deep_work_blocks:0},
+          {date:'2026-02-21',sleep_hours:6,sleep_quality:2,energy:2,deep_work_blocks:0},
+          {date:'2026-02-22',sleep_hours:5.5,sleep_quality:2,energy:1,deep_work_blocks:0},
+          {date:'2026-02-23',sleep_hours:5,sleep_quality:2,energy:2,deep_work_blocks:0}
+        ]
+      }
+    };
+
+    const DEMO_DATA = DEMO_VARIANTS[demoVariant] || DEMO_VARIANTS.balanced;
+    const DEMO_ENTRIES = DEMO_DATA.entries;
+
+    if (!isDemo) {
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session) window.location.href = '/login';
+      });
+    }
+    document.getElementById('logout').onclick = () => sb.auth.signOut().then(() => window.location.href = '/');
+
+    function showState(id) {
+      ['locked', 'loading', 'error-state', 'report'].forEach(s => {
+        document.getElementById(s).classList.toggle('hidden', s !== id);
+      });
+    }
+
+    function renderList(elId, items, colorClass) {
+      const ul = document.getElementById(elId);
+      ul.innerHTML = '';
+      if (!items || !items.length) {
+        ul.innerHTML = '<li class="text-sm text-neutral-500">—</li>';
+        return;
+      }
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'text-sm leading-relaxed whitespace-pre-line ' + (colorClass || 'text-neutral-300');
+        li.textContent = typeof item === 'string' ? item : JSON.stringify(item);
+        ul.appendChild(li);
+      });
+    }
+
+    function computeScore(e) {
+      if (!e) return 0;
+      return Math.round(((e.sleep_quality || 3) / 5) * 35 + Math.min((e.sleep_hours || 0) / 8, 1) * 25 + ((e.energy || 3) / 5) * 25 + ((e.deep_work_blocks || 0) / 5) * 15);
+    }
+
+    function renderPrediction(slice) {
+      const scores = slice.map(computeScore);
+      const lastScore = scores[scores.length - 1];
+      const trend = scores.length >= 2 ? (lastScore - scores[scores.length - 2]) : 0;
+      const greenProj = [Math.min(100, lastScore + 8), Math.min(100, lastScore + 16), Math.min(100, lastScore + 24)];
+      const redProj = [Math.max(0, lastScore + (trend < 0 ? -5 : -2)), Math.max(0, lastScore + (trend < 0 ? -10 : -4)), Math.max(0, lastScore + (trend < 0 ? -15 : -6))];
+      const totalPoints = scores.length + 3;
+      const svg = document.getElementById('prediction-svg');
+      const W = 700, H = 140, pad = { left: 28, right: 36, top: 14, bottom: 20 };
+      const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
+      const xStep = totalPoints > 1 ? iW / (totalPoints - 1) : iW;
+      const px = i => pad.left + i * xStep;
+      const py = v => pad.top + iH - (v / 100) * iH;
+      const actualPath = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
+      const greenPath = 'M' + [lastScore, ...greenProj].map((v, i) => `${px(scores.length - 1 + i)},${py(v)}`).join(' L');
+      const redPath = 'M' + [lastScore, ...redProj].map((v, i) => `${px(scores.length - 1 + i)},${py(v)}`).join(' L');
+      const greenEnd = greenProj[greenProj.length - 1];
+      const redEnd = redProj[redProj.length - 1];
+      const lastProjIdx = scores.length - 1 + 3;
+      svg.innerHTML = `
+        <path d="${actualPath}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+        <path d="${greenPath}" fill="none" stroke="rgba(52,211,153,0.8)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+        <path d="${redPath}" fill="none" stroke="rgba(248,113,113,0.8)" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+        ${scores.map((v, i) => `
+          <circle cx="${px(i)}" cy="${py(v)}" r="2.5" fill="white"/>
+          <text x="${px(i)}" y="${py(v) - 8}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9" font-family="Inter,system-ui,sans-serif">${v}</text>
+        `).join('')}
+        <circle cx="${px(lastProjIdx)}" cy="${py(greenEnd)}" r="3" fill="rgba(52,211,153,0.9)"/>
+        <text x="${px(lastProjIdx) + 8}" y="${py(greenEnd) + 3}" fill="rgba(52,211,153,0.9)" font-size="10" font-weight="500" font-family="Inter,system-ui,sans-serif">${greenEnd}</text>
+        <circle cx="${px(lastProjIdx)}" cy="${py(redEnd)}" r="3" fill="rgba(248,113,113,0.9)"/>
+        <text x="${px(lastProjIdx) + 8}" y="${py(redEnd) + 3}" fill="rgba(248,113,113,0.9)" font-size="10" font-weight="500" font-family="Inter,system-ui,sans-serif">${redEnd}</text>
+      `;
+    }
+
+    function renderCharts(entries) {
+      if (!entries || entries.length < 2) return;
+      const slice = entries.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      // Performance line chart
+      const scores = slice.map(computeScore);
+      const labels = slice.map(e => {
+        const d = new Date((e.date || '') + 'T12:00:00');
+        return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] || e.date?.slice(5) || '';
+      });
+      const W = 600, H = 140, pad = { top: 8, right: 10, bottom: 20, left: 24 };
+      const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
+      const xStep = slice.length > 1 ? iW / (scores.length - 1) : iW;
+      const px = i => pad.left + i * xStep;
+      const py = v => pad.top + iH - (v / 100) * iH;
+      let pathD = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
+      let areaD = pathD + ` L${px(scores.length - 1)},${pad.top + iH} L${px(0)},${pad.top + iH} Z`;
+      document.getElementById('report-line-svg').innerHTML = `
+        <defs><linearGradient id="report-line-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="white" stop-opacity="0.12"/><stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path d="${areaD}" fill="url(#report-line-grad)"/>
+        <path d="${pathD}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        ${scores.map((v, i) => `<circle cx="${px(i)}" cy="${py(v)}" r="3" fill="white" stroke="#050505" stroke-width="1"/>`).join('')}
+      `;
+      document.getElementById('report-x-labels').innerHTML = labels.map(l =>
+        `<span class="text-[9px] text-neutral-600">${l}</span>`
+      ).join('');
+
+      // Prediction chart (3+ days)
+      if (slice.length >= 3) {
+        document.getElementById('prediction-section').classList.remove('hidden');
+        renderPrediction(slice);
+      } else {
+        document.getElementById('prediction-section').classList.add('hidden');
+      }
+
+      // Daily trend bars
+      const dayL = ['S','M','T','W','T','F','S'];
+      const el = document.getElementById('report-week-bars');
+      el.innerHTML = slice.map(e => {
+        const score = computeScore(e);
+        const label = dayL[new Date((e.date || '') + 'T12:00:00').getDay()];
+        return `<div class="flex items-center gap-2">
+          <span class="text-[10px] text-neutral-600 w-3 text-center">${label}</span>
+          <div class="flex-1 h-1.5 rounded bg-white/5 overflow-hidden">
+            <div class="h-full rounded bg-white/30" style="width:${score}%;transition:width .6s"></div>
+          </div>
+          <span class="text-[10px] text-neutral-500 w-5 text-right tabular-nums">${score}</span>
+        </div>`;
+      }).join('');
+
+      // Sleep & Energy dual chart
+      const sleepV = slice.map(e => Math.min(10, e.sleep_hours ?? 0));
+      const energyV = slice.map(e => ((e.energy ?? 3) / 5) * 10);
+      const W2 = 700, H2 = 100, pad2 = { left: 28, right: 10, top: 6, bottom: 12 };
+      const iW2 = W2 - pad2.left - pad2.right, iH2 = H2 - pad2.top - pad2.bottom;
+      const xStep2 = slice.length > 1 ? iW2 / (slice.length - 1) : iW2;
+      const px2 = i => pad2.left + i * xStep2;
+      const py2 = v => pad2.top + iH2 - (v / 10) * iH2;
+      const sPath = sleepV.map((v, i) => `${i ? 'L' : 'M'}${px2(i)},${py2(v)}`).join(' ');
+      const ePath = energyV.map((v, i) => `${i ? 'L' : 'M'}${px2(i)},${py2(v)}`).join(' ');
+      document.getElementById('report-multi-svg').innerHTML = `
+        <defs>
+          <linearGradient id="report-sleep-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="white" stop-opacity="0.1"/><stop offset="100%" stop-color="white" stop-opacity="0"/></linearGradient>
+          <linearGradient id="report-energy-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#eab308" stop-opacity="0.1"/><stop offset="100%" stop-color="#eab308" stop-opacity="0"/></linearGradient>
+        </defs>
+        <path d="${sPath} L${px2(slice.length-1)},${H2-pad2.bottom} L${px2(0)},${H2-pad2.bottom} Z" fill="url(#report-sleep-grad)"/>
+        <path d="${ePath} L${px2(slice.length-1)},${H2-pad2.bottom} L${px2(0)},${H2-pad2.bottom} Z" fill="url(#report-energy-grad)"/>
+        <path d="${sPath}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="${ePath}" fill="none" stroke="rgba(234,179,8,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+        ${sleepV.map((v, i) => `<circle cx="${px2(i)}" cy="${py2(v)}" r="2" fill="white" stroke="#050505" stroke-width="1"/>`).join('')}
+        ${energyV.map((v, i) => `<circle cx="${px2(i)}" cy="${py2(v)}" r="2" fill="#eab308" stroke="#050505" stroke-width="1"/>`).join('')}
+      `;
+    }
+
+    function renderAura(entries, data) {
+      if (!entries || entries.length < 2) { document.getElementById('aura-section').classList.add('hidden'); return; }
+      document.getElementById('aura-section').classList.remove('hidden');
+
+      const n = entries.length;
+      const avgSleep = entries.reduce((s, e) => s + (e.sleep_hours || 0), 0) / n;
+      const avgQuality = entries.reduce((s, e) => s + (e.sleep_quality || 3), 0) / n;
+      const avgEnergy = entries.reduce((s, e) => s + (e.energy || 3), 0) / n;
+      const avgDeepWork = entries.reduce((s, e) => s + (e.deep_work_blocks || 0), 0) / n;
+      const sleepVals = entries.map(e => e.sleep_hours || 0);
+      const sleepMean = avgSleep;
+      const sleepStd = Math.sqrt(sleepVals.reduce((s, v) => s + (v - sleepMean) ** 2, 0) / n);
+      const sleepStability = Math.max(0, 1 - sleepStd / 3);
+
+      const text = [
+        data.week_narrative || '',
+        ...(data.recurring_patterns || []),
+        ...(data.top_derailers || []),
+        ...(data.bright_spots || [])
+      ].join(' ').toLowerCase();
+
+      const stressWords = ['stress','anxious','overwhelm','burnout','friction','frustrat','irritat','tension','rush','panic','worry'];
+      const calmWords = ['calm','peace','relax','steady','stable','balanced','grounded','serene','rest','ease'];
+      const focusWords = ['focus','deep work','productive','flow','concentrat','immersed','engaged','progress'];
+      const fatigueWords = ['tired','exhaust','fatigue','drain','sluggish','low energy','burnout','letharg'];
+
+      const countHits = (words) => words.reduce((c, w) => c + (text.includes(w) ? 1 : 0), 0);
+      const stressHits = countHits(stressWords);
+      const calmHits = countHits(calmWords);
+      const focusHits = countHits(focusWords);
+      const fatigueHits = countHits(fatigueWords);
+
+      let wCalm = sleepStability * 0.6 + (avgQuality / 5) * 0.4 + calmHits * 0.15;
+      let wFocus = (avgDeepWork / 3) * 0.7 + focusHits * 0.15;
+      let wEnergy = (avgEnergy / 5) * 0.8;
+      let wStress = (1 - avgQuality / 5) * 0.4 + stressHits * 0.2 + (avgEnergy < 2.5 && avgQuality < 3 ? 0.3 : 0);
+      let wFatigue = (1 - avgEnergy / 5) * 0.5 + (avgSleep < 6 ? 0.3 : 0) + fatigueHits * 0.15;
+
+      const total = wCalm + wFocus + wEnergy + wStress + wFatigue + 0.001;
+      wCalm /= total; wFocus /= total; wEnergy /= total; wStress /= total; wFatigue /= total;
+
+      const channels = [
+        { w: wCalm,    rgb: [59, 130, 246],  label: 'Calm',    hex: 'rgba(59,130,246,' },
+        { w: wFocus,   rgb: [147, 51, 234],  label: 'Focus',   hex: 'rgba(147,51,234,' },
+        { w: wEnergy,  rgb: [250, 204, 21],  label: 'Energy',  hex: 'rgba(250,204,21,' },
+        { w: wStress,  rgb: [239, 68, 68],   label: 'Stress',  hex: 'rgba(239,68,68,' },
+        { w: wFatigue, rgb: [156, 163, 175], label: 'Fatigue', hex: 'rgba(156,163,175,' }
+      ];
+      channels.sort((a, b) => b.w - a.w);
+
+      const primary = channels[0], secondary = channels[1], tertiary = channels[2];
+
+      const mix = (a, b, t) => a.map((v, i) => Math.round(v * (1 - t) + b[i] * t));
+      const coreColor = mix(primary.rgb, secondary.rgb, 0.35);
+      const midColor = mix(secondary.rgb, tertiary.rgb, 0.4);
+
+      const orbEl = document.getElementById('aura-orb');
+      const blobContainer = document.getElementById('orb-blobs');
+      const top3 = channels.slice(0, 3);
+
+      const blobs = [
+        { ch: primary,   x: '15%', y: '10%', w: '75%', h: '70%', blur: 30, opacity: 0.85, blend: 'screen',     anim: 'blobDrift1 8s ease-in-out infinite' },
+        { ch: primary,   x: '30%', y: '25%', w: '55%', h: '55%', blur: 20, opacity: 0.7,  blend: 'normal',     anim: 'blobDrift2 10s ease-in-out infinite' },
+        { ch: secondary, x: '-5%', y: '35%', w: '65%', h: '60%', blur: 28, opacity: 0.75, blend: 'screen',     anim: 'blobDrift3 9s ease-in-out infinite' },
+        { ch: secondary, x: '50%', y: '5%',  w: '55%', h: '50%', blur: 24, opacity: 0.5,  blend: 'overlay',    anim: 'blobDrift1 12s ease-in-out infinite reverse' },
+        { ch: tertiary,  x: '40%', y: '50%', w: '60%', h: '55%', blur: 26, opacity: 0.65, blend: 'screen',     anim: 'blobDrift2 11s ease-in-out infinite' },
+        { ch: tertiary,  x: '-10%',y: '-5%', w: '50%', h: '50%', blur: 22, opacity: 0.4,  blend: 'soft-light', anim: 'blobDrift3 7s ease-in-out infinite reverse' },
+        { ch: primary,   x: '25%', y: '55%', w: '45%', h: '40%', blur: 18, opacity: 0.45, blend: 'hard-light', anim: 'blobDrift1 14s ease-in-out infinite' },
+        { ch: secondary, x: '55%', y: '40%', w: '40%', h: '45%', blur: 20, opacity: 0.35, blend: 'overlay',    anim: 'blobDrift2 13s ease-in-out infinite reverse' },
+      ];
+
+      blobContainer.innerHTML = blobs.map(b =>
+        `<div class="orb-blob" style="left:${b.x};top:${b.y};width:${b.w};height:${b.h};background:rgb(${b.ch.rgb.join(',')});filter:blur(${b.blur}px);opacity:${b.opacity};mix-blend-mode:${b.blend};animation:${b.anim}"></div>`
+      ).join('');
+
+      const g1 = document.getElementById('aura-glow-1');
+      const g2 = document.getElementById('aura-glow-2');
+      const g3 = document.getElementById('aura-glow-3');
+      g1.style.background = `${primary.hex}0.25)`;
+      g2.style.background = `${secondary.hex}0.28)`;
+      g3.style.background = `${tertiary.hex}0.2)`;
+
+      orbEl.style.boxShadow = `0 0 0 1px rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.5), 0 20px 50px rgba(0,0,0,0.3), 0 0 60px ${primary.hex}0.18), inset 0 -6px 20px rgba(0,0,0,0.2)`;
+
+      const labelEl = document.getElementById('aura-label');
+      const descEl = document.getElementById('aura-desc');
+      labelEl.textContent = top3.map(c => c.label).join(' + ');
+
+      const descriptions = {
+        'Calm': 'Stable sleep and balanced routines created a grounded week.',
+        'Focus': 'Deep work sessions dominated — you were in the zone.',
+        'Energy': 'High energy ran through the week — momentum was strong.',
+        'Stress': 'Friction and pressure colored the week. Recovery matters.',
+        'Fatigue': 'Low reserves this week. Rest and recharge are key.'
+      };
+      descEl.textContent = descriptions[primary.label] || '';
+
+      const legendEl = document.getElementById('aura-legend');
+      const top3Sum = top3.reduce((s, c) => s + c.w, 0);
+      legendEl.innerHTML = top3.map(ch => {
+        const pct = Math.round((ch.w / top3Sum) * 100);
+        return `<div class="flex items-center gap-3 w-full max-w-[260px]">
+          <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:rgb(${ch.rgb.join(',')})"></div>
+          <span class="text-[11px] text-neutral-400 w-[60px] text-left">${ch.label}</span>
+          <div class="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+            <div class="h-full rounded-full" style="width:${pct}%;background:rgb(${ch.rgb.join(',')});opacity:0.7;transition:width .6s"></div>
+          </div>
+          <span class="text-[11px] text-neutral-500 w-[32px] text-right tabular-nums">${pct}%</span>
+        </div>`;
+      }).join('');
+    }
+
+    function renderReport(data) {
+      document.getElementById('demo-badge').classList.toggle('hidden', !isDemo);
+      document.getElementById('report-range').textContent = isDemo ? 'Feb 17–23, 2026 (sample data)' : (data.date_range || '');
+      const m = data.metrics || {};
+      document.getElementById('m-sleep').textContent = (m.avg_sleep || '—') + 'h';
+      document.getElementById('m-quality').textContent = (m.avg_sleep_quality || '—') + '/5';
+      document.getElementById('m-energy').textContent = (m.avg_energy || '—') + '/5';
+      document.getElementById('m-blocks').textContent = m.total_deep_work || '0';
+
+      document.getElementById('narrative').textContent = data.week_narrative || '—';
+
+      const recoveryLag = (data.recovery_lag || '').trim();
+      const recoverySection = document.getElementById('recovery-lag-section');
+      if (recoveryLag) {
+        recoverySection.classList.remove('hidden');
+        document.getElementById('recovery-lag').textContent = recoveryLag;
+      } else {
+        recoverySection.classList.add('hidden');
+      }
+
+      renderList('patterns', data.recurring_patterns, 'text-neutral-200');
+      renderList('derailers', data.top_derailers, 'text-red-200/80');
+      renderList('bright-spots', data.bright_spots, 'text-emerald-200/80');
+      renderList('micro-shifts', data.micro_shifts, 'text-neutral-300');
+
+      const exp = data.weekly_experiment || {};
+      if (typeof exp === 'string') {
+        document.getElementById('exp-focus').textContent = exp;
+        document.getElementById('exp-protocol').textContent = '—';
+        document.getElementById('exp-mechanism').textContent = '—';
+        document.getElementById('exp-metric').textContent = '—';
+      } else {
+        document.getElementById('exp-focus').textContent = exp.focus || '—';
+        document.getElementById('exp-protocol').textContent = exp.protocol || '—';
+        document.getElementById('exp-mechanism').textContent = exp.mechanism || '—';
+        document.getElementById('exp-metric').textContent = exp.success_metric || '—';
+      }
+
+      const entries = data.entries && data.entries.length ? data.entries : (isDemo ? DEMO_ENTRIES : null);
+      document.getElementById('full-analysis-link').href = isDemo ? '/analysis?demo=true' : '/analysis';
+      showState('report');
+      requestAnimationFrame(() => {
+        renderCharts(entries);
+        renderAura(entries, data);
+      });
+    }
+
+    let _authToken = null;
+    async function fetchReport(userId) {
+      showState('loading');
+      try {
+        const url = isDemo ? '/api/weekly-report-demo' : '/api/weekly-report';
+        const headers = { 'Content-Type': 'application/json' };
+        if (_authToken) headers['Authorization'] = 'Bearer ' + _authToken;
+        const r = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(isDemo ? {} : {})
+        });
+        const data = await r.json();
+
+        if (isDemo && DEMO_DATA) {
+          data.week_narrative = data.week_narrative || DEMO_DATA.narrative;
+          data.recurring_patterns = data.recurring_patterns || DEMO_DATA.patterns;
+          data.top_derailers = data.top_derailers || DEMO_DATA.derailers;
+          data.bright_spots = data.bright_spots || DEMO_DATA.bright_spots;
+          data.date_range = DEMO_DATA.label;
+        }
+
+        if (data.locked) {
+          const dots = document.getElementById('progress-dots');
+          dots.innerHTML = '';
+          for (let i = 0; i < 7; i++) {
+            const dot = document.createElement('div');
+            dot.className = i < data.entries_count
+              ? 'w-2.5 h-2.5 rounded-full bg-white/80'
+              : 'w-2.5 h-2.5 rounded-full bg-white/10 border border-white/20';
+            dots.appendChild(dot);
+          }
+          document.getElementById('progress-text').textContent =
+            data.entries_count + ' of 7 check-ins completed';
+          showState('locked');
+          return;
+        }
+
+        if (data.error && !data.week_narrative) {
+          document.getElementById('error-msg').textContent = data.error;
+          showState('error-state');
+          return;
+        }
+
+        renderReport(data);
+      } catch (err) {
+        document.getElementById('error-msg').textContent = 'Failed to load report. Check your connection.';
+        showState('error-state');
+      }
+    }
+
+    let currentUserId = null;
+    document.getElementById('retry-btn').onclick = () => {
+      if (currentUserId) fetchReport(currentUserId);
+    };
+
+    if (isDemo) {
+      fetchReport('demo');
+    } else {
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (!session) { window.location.href = '/login'; return; }
+        _authToken = session.access_token;
+        currentUserId = session.user.id;
+        fetchReport(session.user.id);
+      });
+    }
+    })();
+  </script>
+</body>
+</html>

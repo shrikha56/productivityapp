@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log in — Signal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/signal.css?v=3">
+</head>
+<body class="antialiased selection:bg-white selection:text-black overflow-x-hidden">
+  <div class="noise-bg"></div>
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[50vh] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent pointer-events-none z-0"></div>
+
+  <nav class="relative z-10 w-full max-w-4xl mx-auto px-6 py-6 flex justify-between items-center">
+    <a href="/" class="flex items-center gap-2">
+      <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black rounded-full"></div></div>
+      <span class="text-sm font-medium tracking-tight text-white">SIGNAL</span>
+    </a>
+    <a href="/signup" class="text-xs font-medium text-neutral-400 hover:text-white transition-colors">Sign up</a>
+  </nav>
+
+  <!-- Loading overlay while checking session -->
+  <div id="page-loader" class="relative z-10 flex items-center justify-center pt-32">
+    <div class="w-5 h-5 border-2 border-white/20 border-t-white/80 rounded-full animate-spin"></div>
+  </div>
+
+  <main id="main-content" class="relative z-10 max-w-sm mx-auto px-6 pt-16 pb-24 hidden">
+    <h1 class="text-2xl font-medium text-white tracking-tight mb-2">Log in</h1>
+    <p class="text-sm text-neutral-500 mb-8">Continue your experiment.</p>
+
+    <div class="glass-card rounded-2xl p-6">
+      <!-- Google OAuth -->
+      <button id="google-btn" type="button" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-neutral-100 text-black text-sm font-medium py-2.5 rounded-lg transition-colors mb-4">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 2.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="flex items-center gap-3 my-4">
+        <div class="flex-1 h-px bg-white/10"></div>
+        <span class="text-[10px] text-neutral-500 uppercase tracking-wider">or</span>
+        <div class="flex-1 h-px bg-white/10"></div>
+      </div>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-neutral-400 mb-1.5">Email</label>
+          <input type="email" name="email" required placeholder="you@work.com" autocomplete="email"
+            class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:border-white/30 focus:ring-0 outline-none">
+        </div>
+        <div>
+          <label class="flex justify-between text-xs font-medium text-neutral-400 mb-1.5">
+            <span>Password</span>
+            <button type="button" id="forgot-link" class="text-neutral-500 hover:text-white transition-colors">Forgot?</button>
+          </label>
+          <div class="relative">
+            <input type="password" name="password" required placeholder="••••••••" autocomplete="current-password"
+              class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-neutral-600 focus:border-white/30 focus:ring-0 outline-none">
+            <button type="button" id="toggle-pw" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors text-xs">Show</button>
+          </div>
+        </div>
+        <p id="msg" class="text-xs min-h-[1rem]"></p>
+        <button type="submit" id="submit-btn" class="w-full bg-white hover:bg-neutral-200 text-black text-sm font-medium py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+          Log in
+        </button>
+      </form>
+
+      <div class="flex items-center gap-3 my-4">
+        <div class="flex-1 h-px bg-white/10"></div>
+        <span class="text-[10px] text-neutral-500 uppercase tracking-wider">or</span>
+        <div class="flex-1 h-px bg-white/10"></div>
+      </div>
+
+      <button id="magic-link" type="button" class="w-full border border-white/10 hover:border-white/20 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
+        Sign in with email link
+      </button>
+    </div>
+
+    <!-- Forgot password panel (hidden by default) -->
+    <div id="forgot-panel" class="glass-card rounded-2xl p-6 mt-4 hidden">
+      <h2 class="text-sm font-medium text-white mb-1">Reset password</h2>
+      <p class="text-xs text-neutral-500 mb-4">We'll email you a link to reset your password.</p>
+      <form id="forgot-form" class="space-y-3">
+        <input type="email" name="reset-email" required placeholder="you@work.com"
+          class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:border-white/30 focus:ring-0 outline-none">
+        <p id="forgot-msg" class="text-xs min-h-[1rem]"></p>
+        <button type="submit" class="w-full border border-white/10 hover:border-white/20 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
+          Send reset link
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (function() {
+      const sb = window.supabase.createClient(
+        'https://xmxzunophhboyfidicof.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhteHp1bm9waGhib3lmaWRpY29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1MjAxMTgsImV4cCI6MjA4NzA5NjExOH0.WfliJUAmcKt7tbhVlN0_BoTfnP5xpAktxpCFFFwdPeY'
+      );
+      const redirectTo = window.location.origin + '/auth/callback';
+
+      // Auto-redirect if already logged in
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          window.location.href = '/checkin';
+        } else {
+          document.getElementById('page-loader').classList.add('hidden');
+          document.getElementById('main-content').classList.remove('hidden');
+        }
+      });
+
+      function msg(t, err) {
+        const el = document.getElementById('msg');
+        el.textContent = t;
+        el.className = 'text-xs min-h-[1rem] ' + (err ? 'text-red-400' : 'text-green-400');
+      }
+
+      // Show/hide password
+      document.getElementById('toggle-pw').onclick = function() {
+        const inp = document.querySelector('[name="password"]');
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        this.textContent = show ? 'Hide' : 'Show';
+      };
+
+      // Google OAuth
+      document.getElementById('google-btn').onclick = async () => {
+        try {
+          const { error } = await sb.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo }
+          });
+          if (error) throw error;
+        } catch (err) {
+          msg(err.message || 'Google sign-in failed', true);
+        }
+      };
+
+      // Email + password login
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        const email = e.target.email.value.trim();
+        const password = e.target.password.value;
+        if (!email || !password) { msg('Fill in all fields', true); return; }
+        btn.disabled = true;
+        btn.textContent = 'Logging in…';
+        msg('');
+        try {
+          const { data, error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          window.location.href = '/checkin';
+        } catch (err) {
+          const m = err.message || '';
+          if (m.includes('Invalid login')) msg('Incorrect email or password', true);
+          else if (m.includes('Email not confirmed')) msg('Check your email to confirm your account first', true);
+          else msg(m || 'Something went wrong', true);
+          btn.disabled = false;
+          btn.textContent = 'Log in';
+        }
+      });
+
+      // Magic link
+      document.getElementById('magic-link').addEventListener('click', async () => {
+        const email = document.querySelector('[name="email"]').value.trim();
+        if (!email) { msg('Enter your email above first', true); return; }
+        msg('Sending sign-in link…');
+        try {
+          const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+          if (error) throw error;
+          msg('Check your email for the sign-in link.', false);
+        } catch (err) {
+          msg(err.message || 'Something went wrong', true);
+        }
+      });
+
+      // Forgot password
+      document.getElementById('forgot-link').onclick = () => {
+        const panel = document.getElementById('forgot-panel');
+        panel.classList.toggle('hidden');
+        const email = document.querySelector('[name="email"]').value.trim();
+        if (email) document.querySelector('[name="reset-email"]').value = email;
+      };
+
+      document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = e.target['reset-email'].value.trim();
+        const fmsg = document.getElementById('forgot-msg');
+        if (!email) { fmsg.textContent = 'Enter your email'; fmsg.className = 'text-xs min-h-[1rem] text-red-400'; return; }
+        fmsg.textContent = 'Sending…';
+        fmsg.className = 'text-xs min-h-[1rem] text-neutral-400';
+        try {
+          const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/auth/callback' });
+          if (error) throw error;
+          fmsg.textContent = 'Reset link sent. Check your email.';
+          fmsg.className = 'text-xs min-h-[1rem] text-green-400';
+        } catch (err) {
+          fmsg.textContent = err.message || 'Something went wrong';
+          fmsg.className = 'text-xs min-h-[1rem] text-red-400';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

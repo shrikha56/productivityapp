@@ -25,6 +25,8 @@ git push -u origin main
 4. **Environment Variables** → add:
    - `SUPABASE_URL` = `https://xmxzunophhboyfidicof.supabase.co`
    - `SUPABASE_SERVICE_ROLE_KEY` = your service_role key from Supabase (Project Settings → API)
+   - `ENCRYPTION_KEY` = from your `.env` (required to decrypt reflection/transcript — without it, entries show garbled text)
+   - `OPENAI_API_KEY` = for analysis and weekly report
 5. **Deploy**. You’ll get a URL like `https://signal-landing.vercel.app`.
 
 ## 3. Add domain signal-au.com
