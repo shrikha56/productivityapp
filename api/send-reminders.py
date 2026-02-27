@@ -176,6 +176,9 @@ class handler(BaseHTTPRequestHandler):
                     user_name = user_name.split()[0]
 
             try:
+                if sent > 0:
+                    import time
+                    time.sleep(1)
                 if day_number == 1:
                     subject = "Welcome to Signal — start your first check-in"
                 else:

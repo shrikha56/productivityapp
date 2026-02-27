@@ -561,6 +561,9 @@ def send_reminders():
                 user_name = user_name.split()[0]
 
         try:
+            if sent > 0:
+                import time as _time
+                _time.sleep(1)
             subject = "Welcome to Signal — start your first check-in" if day_number == 1 else f"Day {day_number}/7 — Time for your check-in"
             html = sr_mod.build_reminder_html(day_number, user_name)
             sr_mod.send_email(email, subject, html)
