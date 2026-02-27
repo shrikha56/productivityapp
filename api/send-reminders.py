@@ -19,17 +19,27 @@ def get_supabase():
 
 
 def send_email(to_email, subject, html_body):
-    import resend
-    resend.api_key = os.environ.get("RESEND_API_KEY", "")
-    if not resend.api_key:
+    import urllib.request
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    if not api_key:
         return None
-    from_addr = os.environ.get("EMAIL_FROM", "Signal <noreply@signal-app.com>")
-    return resend.Emails.send({
+    from_addr = os.environ.get("EMAIL_FROM", "Signal <onboarding@resend.dev>")
+    payload = json.dumps({
         "from": from_addr,
         "to": [to_email],
         "subject": subject,
         "html": html_body,
-    })
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+    )
+    resp = urllib.request.urlopen(req, timeout=10)
+    return json.loads(resp.read().decode("utf-8"))
 
 
 def build_reminder_html(day_number, user_name=""):
