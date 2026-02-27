@@ -197,6 +197,9 @@ class handler(BaseHTTPRequestHandler):
         for entry in entries:
             entry["transcript"] = decrypt(entry.get("transcript") or "")
             entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
+            entry["predicted_impact"] = decrypt(entry.get("predicted_impact") or "")
+            entry["experiment_for_tomorrow"] = decrypt(entry.get("experiment_for_tomorrow") or "")
+            entry["likely_drivers"] = [decrypt(d) for d in (entry.get("likely_drivers") or [])]
 
         unique_dates = set(e.get("date") for e in entries if e.get("date"))
         entries_count = len(unique_dates)

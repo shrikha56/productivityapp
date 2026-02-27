@@ -274,9 +274,9 @@ class handler(BaseHTTPRequestHandler):
             "deep_work_blocks": deep_work,
             "transcript": encrypt(transcript),
             "reflection_summary": encrypt(result.get("reflection_summary", "")),
-            "likely_drivers": result.get("likely_drivers", []),
-            "predicted_impact": result.get("predicted_impact", ""),
-            "experiment_for_tomorrow": result.get("experiment_for_tomorrow", ""),
+            "likely_drivers": [encrypt(d) for d in result.get("likely_drivers", [])],
+            "predicted_impact": encrypt(result.get("predicted_impact", "")),
+            "experiment_for_tomorrow": encrypt(result.get("experiment_for_tomorrow", "")),
         }
 
         try:

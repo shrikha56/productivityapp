@@ -164,6 +164,9 @@ def list_entries():
         entries = result.data or []
         for e in entries:
             e["reflection_summary"] = decrypt(e.get("reflection_summary") or "")
+            e["predicted_impact"] = decrypt(e.get("predicted_impact") or "")
+            e["experiment_for_tomorrow"] = decrypt(e.get("experiment_for_tomorrow") or "")
+            e["likely_drivers"] = [decrypt(d) for d in (e.get("likely_drivers") or [])]
         return jsonify({"data": entries})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -220,6 +223,9 @@ def get_entry(entry_id):
 
         entry["transcript"] = safe_decrypt(entry.get("transcript"))
         entry["reflection_summary"] = safe_decrypt(entry.get("reflection_summary"))
+        entry["predicted_impact"] = safe_decrypt(entry.get("predicted_impact"))
+        entry["experiment_for_tomorrow"] = safe_decrypt(entry.get("experiment_for_tomorrow"))
+        entry["likely_drivers"] = [safe_decrypt(d) for d in (entry.get("likely_drivers") or [])]
         entry_date = entry.get("date")
         entry_num = entry.get("entry_number") or 1
         try:
@@ -343,9 +349,9 @@ def analyze():
         "deep_work_blocks": deep_work,
         "transcript": encrypt(transcript),
         "reflection_summary": encrypt(result.get("reflection_summary", "")),
-        "likely_drivers": result.get("likely_drivers", []),
-        "predicted_impact": result.get("predicted_impact", ""),
-        "experiment_for_tomorrow": result.get("experiment_for_tomorrow", ""),
+        "likely_drivers": [encrypt(d) for d in result.get("likely_drivers", [])],
+        "predicted_impact": encrypt(result.get("predicted_impact", "")),
+        "experiment_for_tomorrow": encrypt(result.get("experiment_for_tomorrow", "")),
     }
     if has_multi_entry_cols:
         row["entry_number"] = next_number
@@ -358,9 +364,9 @@ def analyze():
         if is_follow_up and is_last_reflection and existing_entries and not skip_analysis:
             update_data = {
                 "reflection_summary": encrypt(result.get("reflection_summary", "")),
-                "likely_drivers": result.get("likely_drivers", []),
-                "predicted_impact": result.get("predicted_impact", ""),
-                "experiment_for_tomorrow": result.get("experiment_for_tomorrow", ""),
+                "likely_drivers": [encrypt(d) for d in result.get("likely_drivers", [])],
+                "predicted_impact": encrypt(result.get("predicted_impact", "")),
+                "experiment_for_tomorrow": encrypt(result.get("experiment_for_tomorrow", "")),
             }
             for e in existing_entries:
                 supabase.table("entries").update(update_data).eq("id", e["id"]).execute()
@@ -444,6 +450,9 @@ def weekly_report():
     for entry in entries:
         entry["transcript"] = decrypt(entry.get("transcript") or "")
         entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
+        entry["predicted_impact"] = decrypt(entry.get("predicted_impact") or "")
+        entry["experiment_for_tomorrow"] = decrypt(entry.get("experiment_for_tomorrow") or "")
+        entry["likely_drivers"] = [decrypt(d) for d in (entry.get("likely_drivers") or [])]
 
     unique_dates = sorted(set(e.get("date") for e in entries if e.get("date")), reverse=True)
     entries_count = len(unique_dates)

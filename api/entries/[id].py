@@ -62,6 +62,9 @@ class handler(BaseHTTPRequestHandler):
 
             entry["transcript"] = safe_decrypt(entry.get("transcript"))
             entry["reflection_summary"] = safe_decrypt(entry.get("reflection_summary"))
+            entry["predicted_impact"] = safe_decrypt(entry.get("predicted_impact"))
+            entry["experiment_for_tomorrow"] = safe_decrypt(entry.get("experiment_for_tomorrow"))
+            entry["likely_drivers"] = [safe_decrypt(d) for d in (entry.get("likely_drivers") or [])]
             entry_date = entry.get("date")
             entry_num = entry.get("entry_number") or 1
             try:

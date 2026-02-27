@@ -46,6 +46,9 @@ class handler(BaseHTTPRequestHandler):
         from api.security import decrypt
         for e in entries:
             e["reflection_summary"] = decrypt(e.get("reflection_summary") or "")
+            e["predicted_impact"] = decrypt(e.get("predicted_impact") or "")
+            e["experiment_for_tomorrow"] = decrypt(e.get("experiment_for_tomorrow") or "")
+            e["likely_drivers"] = [decrypt(d) for d in (e.get("likely_drivers") or [])]
 
         self._send(200, {"data": entries})
 
