@@ -9,5 +9,11 @@
     { "source": "/entry", "destination": "/entry.html" },
     { "source": "/auth-callback", "destination": "/auth-callback.html" },
     { "source": "/auth/callback", "destination": "/auth-callback.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/send-reminders",
+      "schedule": "0 9 * * *"
+    }
   ]
 }

@@ -224,6 +224,24 @@
         <svg id="multi-svg" class="chart" height="120" viewBox="0 0 900 120" preserveAspectRatio="none"></svg>
       </div>
 
+      <!-- Feedback -->
+      <div id="feedback-section" class="glass-card rounded-2xl p-6 mt-6">
+        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">How useful was this analysis?</span>
+        <div class="flex gap-2 mt-3" id="feedback-stars">
+          <button data-rating="1" class="fb-star w-9 h-9 rounded-lg border border-white/10 bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-white transition-all text-sm">1</button>
+          <button data-rating="2" class="fb-star w-9 h-9 rounded-lg border border-white/10 bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-white transition-all text-sm">2</button>
+          <button data-rating="3" class="fb-star w-9 h-9 rounded-lg border border-white/10 bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-white transition-all text-sm">3</button>
+          <button data-rating="4" class="fb-star w-9 h-9 rounded-lg border border-white/10 bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-white transition-all text-sm">4</button>
+          <button data-rating="5" class="fb-star w-9 h-9 rounded-lg border border-white/10 bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-white transition-all text-sm">5</button>
+          <span class="text-[10px] text-neutral-600 self-center ml-1">not useful → very useful</span>
+        </div>
+        <div id="feedback-form-extra" class="hidden mt-3">
+          <textarea id="feedback-comment" rows="2" maxlength="1000" placeholder="Any thoughts? What could be better?" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:border-white/20 focus:ring-0 outline-none resize-none"></textarea>
+          <button id="feedback-submit" class="mt-2 px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">Send feedback</button>
+        </div>
+        <p id="feedback-msg" class="text-xs text-neutral-500 mt-2 min-h-[1rem]"></p>
+      </div>
+
       <div class="mt-8 flex flex-wrap gap-3">
         <a href="/checkin" class="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-white hover:bg-white/15 transition-colors">New check-in</a>
         <a id="report-link" href="/report/weekly" class="px-4 py-2 rounded-lg border border-white/10 text-sm text-neutral-400 hover:text-white transition-colors">Weekly report</a>
@@ -527,6 +545,51 @@
         ${energyV.map((v, i) => `<circle cx="${px(i)}" cy="${pyS(v)}" r="2" fill="#eab308" stroke="#050505" stroke-width="1"/>`).join('')}
       `;
     }
+
+  // Feedback
+  let _selectedRating = 0;
+  document.querySelectorAll('.fb-star').forEach(btn => {
+    btn.onclick = () => {
+      _selectedRating = parseInt(btn.dataset.rating);
+      document.querySelectorAll('.fb-star').forEach((b, i) => {
+        const active = i < _selectedRating;
+        b.className = 'fb-star w-9 h-9 rounded-lg border text-sm transition-all ' +
+          (active ? 'border-white/30 bg-white/15 text-white' : 'border-white/10 bg-white/5 text-neutral-500 hover:bg-white/10 hover:text-white');
+      });
+      document.getElementById('feedback-form-extra').classList.remove('hidden');
+    };
+  });
+
+  document.getElementById('feedback-submit').onclick = async () => {
+    const msg = document.getElementById('feedback-msg');
+    const comment = document.getElementById('feedback-comment').value.trim();
+    if (!_selectedRating) { msg.textContent = 'Pick a rating first'; return; }
+    const btn = document.getElementById('feedback-submit');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const session = (await sb.auth.getSession()).data.session;
+      const token = session?.access_token || '';
+      const r = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ rating: _selectedRating, comment, report_type: 'daily_analysis' }),
+      });
+      const j = await r.json();
+      if (r.ok) {
+        document.getElementById('feedback-section').innerHTML =
+          '<p class="text-sm text-neutral-400 py-2">Thanks for your feedback! It helps us improve Signal.</p>';
+      } else {
+        msg.textContent = j.error || 'Something went wrong';
+        btn.disabled = false;
+        btn.textContent = 'Send feedback';
+      }
+    } catch (e) {
+      msg.textContent = 'Failed to send. Try again.';
+      btn.disabled = false;
+      btn.textContent = 'Send feedback';
+    }
+  };
 
   })();
   </script>

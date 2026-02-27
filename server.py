@@ -473,6 +473,35 @@ def weekly_report():
     return jsonify(report)
 
 
+@app.route("/api/feedback", methods=["POST", "OPTIONS"])
+@require_auth
+def submit_feedback():
+    data = request.get_json(silent=True) or {}
+    rating = data.get("rating")
+    comment = sanitize_text(data.get("comment") or "", max_length=1000)
+    report_type = sanitize_text(data.get("report_type") or "", max_length=50)
+
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 5:
+            return jsonify({"error": "Rating must be 1-5"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Rating must be 1-5"}), 400
+
+    supabase = get_supabase()
+    row = {
+        "user_id": request.authenticated_user_id,
+        "rating": rating,
+        "comment": comment,
+        "report_type": report_type,
+    }
+    try:
+        supabase.table("feedback").insert(row).execute()
+        return jsonify({"ok": True, "message": "Thanks for your feedback!"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 def _fallback_clarify(text: str) -> list:
     """Return simple clarifying questions when GPT is not available."""
     t = text.lower()
