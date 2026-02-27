@@ -20,9 +20,10 @@ def get_supabase():
 
 def send_email(to_email, subject, html_body):
     import urllib.request
+    import urllib.error
     api_key = os.environ.get("RESEND_API_KEY", "")
     if not api_key:
-        return None
+        raise RuntimeError("RESEND_API_KEY not set")
     from_addr = os.environ.get("EMAIL_FROM", "Signal <onboarding@resend.dev>")
     payload = json.dumps({
         "from": from_addr,
@@ -38,8 +39,12 @@ def send_email(to_email, subject, html_body):
             "Content-Type": "application/json",
         },
     )
-    resp = urllib.request.urlopen(req, timeout=10)
-    return json.loads(resp.read().decode("utf-8"))
+    try:
+        resp = urllib.request.urlopen(req, timeout=10)
+        return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Resend {e.code}: {body}")
 
 
 def build_reminder_html(day_number, user_name=""):
