@@ -571,8 +571,96 @@ def send_reminders():
         except Exception as e:
             errors.append(f"{email}: {e}")
 
-    rk = os.environ.get("RESEND_API_KEY", "")
-    return jsonify({"ok": True, "sent": sent, "skipped": skipped, "errors": errors[:10], "email_from": os.environ.get("EMAIL_FROM", "(not set)"), "key_prefix": rk[:10] if rk else "(not set)", "key_len": len(rk)})
+    return jsonify({"ok": True, "sent": sent, "skipped": skipped, "errors": errors[:10]})
+
+
+@app.route("/api/send-invites", methods=["GET"])
+def send_invites():
+    cron_secret = os.environ.get("CRON_SECRET", "")
+    auth = request.headers.get("Authorization", "")
+    if cron_secret and auth != f"Bearer {cron_secret}":
+        return jsonify({"error": "Unauthorized"}), 401
+
+    supabase = get_supabase()
+    if not supabase:
+        return jsonify({"error": "Server not configured"}), 503
+
+    sr_mod = importlib.import_module("api.send-reminders")
+    app_url = os.environ.get("APP_URL", "https://signal-au.com")
+
+    try:
+        result = supabase.table("signups").select("email").execute()
+        signups = result.data or []
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch signups: {e}"}), 500
+
+    try:
+        users_resp = supabase.auth.admin.list_users()
+        users = users_resp if isinstance(users_resp, list) else getattr(users_resp, 'users', [])
+        registered_emails = set()
+        for u in users:
+            e = u.email if hasattr(u, 'email') else u.get('email')
+            if e:
+                registered_emails.add(e.lower())
+    except Exception:
+        registered_emails = set()
+
+    sent, skipped, errors = 0, 0, []
+
+    for row in signups:
+        email = (row.get("email") or "").strip().lower()
+        if not email:
+            continue
+
+        if email in registered_emails:
+            skipped += 1
+            continue
+
+        try:
+            if sent > 0:
+                import time as _time
+                _time.sleep(1)
+
+            html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#050505;font-family:'Inter',system-ui,-apple-system,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;padding:40px 24px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="display:inline-block;width:32px;height:32px;background:white;border-radius:50%;line-height:32px;">
+        <div style="display:inline-block;width:10px;height:10px;background:black;border-radius:50%;vertical-align:middle;"></div>
+      </div>
+      <span style="color:white;font-size:13px;font-weight:500;letter-spacing:-0.01em;margin-left:8px;vertical-align:middle;">SIGNAL</span>
+    </div>
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:32px 24px;">
+      <p style="color:#e5e5e5;font-size:15px;margin:0 0 6px 0;">Hey,</p>
+      <p style="color:#a3a3a3;font-size:14px;line-height:1.6;margin:0 0 20px 0;">
+        You signed up for Signal — your 7-day performance experiment is ready. Create your account to start tracking sleep, energy, and focus. After 7 days, you'll unlock a full weekly pattern report.
+      </p>
+      <div style="margin:0 0 20px 0;padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+        <p style="color:#a3a3a3;font-size:12px;line-height:1.6;margin:0;">
+          <span style="color:#e5e5e5;font-weight:500;">Takes 2 minutes a day:</span><br>
+          Log sleep, energy, and a quick voice or text reflection.<br>
+          Signal detects patterns you can't see yourself.<br>
+          Day 7: unlock your full weekly performance report.
+        </p>
+      </div>
+      <div style="text-align:center;">
+        <a href="{app_url}/signup" style="display:inline-block;background:white;color:black;font-size:13px;font-weight:500;padding:10px 28px;border-radius:999px;text-decoration:none;">
+          Create your account
+        </a>
+      </div>
+    </div>
+    <p style="color:#525252;font-size:11px;text-align:center;margin-top:24px;">
+      You're receiving this because you signed up for Signal's 7-day trial.
+    </p>
+  </div>
+</body></html>"""
+
+            sr_mod.send_email(email, "Your Signal experiment is ready — create your account", html)
+            sent += 1
+        except Exception as e:
+            errors.append(f"{email}: {e}")
+
+    return jsonify({"ok": True, "sent": sent, "skipped": skipped, "total_signups": len(signups), "errors": errors[:10]})
 
 
 def _fallback_clarify(text: str) -> list:
