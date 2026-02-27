@@ -568,7 +568,7 @@ def send_reminders():
         except Exception as e:
             errors.append(f"{email}: {e}")
 
-    return jsonify({"ok": True, "sent": sent, "skipped": skipped, "errors": errors[:10]})
+    return jsonify({"ok": True, "sent": sent, "skipped": skipped, "errors": errors[:10], "email_from": os.environ.get("EMAIL_FROM", "(not set)")})
 
 
 def _fallback_clarify(text: str) -> list:
