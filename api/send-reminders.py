@@ -24,7 +24,7 @@ def send_email(to_email, subject, html_body):
     api_key = os.environ.get("RESEND_API_KEY", "")
     if not api_key:
         raise RuntimeError("RESEND_API_KEY not set")
-    from_addr = os.environ.get("EMAIL_FROM", "Signal <onboarding@resend.dev>")
+    from_addr = os.environ.get("EMAIL_FROM", "Signal <noreply@signal-au.com>")
     payload = json.dumps({
         "from": from_addr,
         "to": [to_email],
