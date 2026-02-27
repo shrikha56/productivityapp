@@ -34,7 +34,7 @@ def send_email(to_email, subject, html_body):
 
 def build_reminder_html(day_number, user_name=""):
     greeting = f"Hey{' ' + user_name if user_name else ''}"
-    app_url = os.environ.get("APP_URL", "https://signalapp.vercel.app")
+    app_url = os.environ.get("APP_URL", "https://signal-au.com")
 
     encouragement = {
         1: "You signed up — now let's make it count. Your first check-in takes 2 minutes and sets the baseline for everything Signal does for you.",
