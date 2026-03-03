@@ -42,6 +42,34 @@
       color: #e5e5e5;
     }
     .tab-btn:hover:not(.active) { color: #d4d4d4; border-color: rgba(255,255,255,0.12); }
+    .filter-wrap {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+    }
+    .filter-btn {
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #a3a3a3;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: 'Inter', sans-serif;
+      text-transform: uppercase;
+    }
+    .filter-btn.active {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.18);
+      color: #ffffff;
+    }
+    .filter-btn:hover:not(.active) { color: #e5e5e5; background: rgba(255,255,255,0.06); }
     .hm-cell {
       aspect-ratio: 1;
       border-radius: 3px;
@@ -126,7 +154,16 @@
       <!-- Performance line chart -->
       <div class="glass-card rounded-2xl p-6 mb-4" id="chart-card">
         <div class="flex justify-between items-start mb-4">
-          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Performance Score</span>
+          <div>
+            <span id="metric-title" class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Performance Score</span>
+            <div class="mt-2 filter-wrap" aria-label="Filter chart metric">
+              <button class="metric-btn filter-btn active" data-metric="score">Score</button>
+              <button class="metric-btn filter-btn" data-metric="sleep_hours">Sleep</button>
+              <button class="metric-btn filter-btn" data-metric="sleep_quality">Quality</button>
+              <button class="metric-btn filter-btn" data-metric="energy">Energy</button>
+              <button class="metric-btn filter-btn" data-metric="deep_work_blocks">Deep work</button>
+            </div>
+          </div>
           <div class="flex gap-1">
             <button class="tab-btn active" data-range="7d">7D</button>
             <button class="tab-btn" data-range="30d">30D</button>
@@ -162,7 +199,16 @@
         </div>
         <!-- Quality heatmap -->
         <div class="glass-card rounded-2xl p-6">
-          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Quality Heatmap · 4 Weeks</span>
+          <div class="flex items-start justify-between gap-3">
+            <span id="heatmap-title" class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Quality Heatmap · 4 Weeks</span>
+            <div class="filter-wrap" aria-label="Filter heatmap metric">
+              <button class="hm-btn filter-btn active" data-metric="sleep_quality">Quality</button>
+              <button class="hm-btn filter-btn" data-metric="score">Score</button>
+              <button class="hm-btn filter-btn" data-metric="sleep_hours">Sleep</button>
+              <button class="hm-btn filter-btn" data-metric="energy">Energy</button>
+              <button class="hm-btn filter-btn" data-metric="deep_work_blocks">Deep work</button>
+            </div>
+          </div>
           <div class="grid grid-cols-7 gap-1 mt-4 mb-1">
             <span class="text-[8px] text-neutral-600 text-center">M</span>
             <span class="text-[8px] text-neutral-600 text-center">T</span>
@@ -301,9 +347,30 @@
       return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
     }
 
+    // ── Metric filtering ──
+    const METRICS = {
+      score: { label: 'Performance Score', min: 0, max: 100, unit: '', fmt: v => String(Math.round(v)) },
+      sleep_hours: { label: 'Sleep (hours)', min: 0, max: 10, unit: 'h', fmt: v => (Math.round(v * 10) / 10).toFixed(1) },
+      sleep_quality: { label: 'Sleep Quality', min: 1, max: 5, unit: '/5', fmt: v => String(Math.round(v)) },
+      energy: { label: 'Energy', min: 1, max: 5, unit: '/5', fmt: v => String(Math.round(v)) },
+      deep_work_blocks: { label: 'Deep Work Blocks', min: 0, max: 5, unit: '', fmt: v => String(Math.round(v)) },
+    };
+    let selectedMetric = 'score';
+    let selectedRange = '7d';
+    let heatmapMetric = 'sleep_quality';
+
     function computeScore(e) {
       if (!e) return 0;
       return Math.round(((e.sleep_quality || 3) / 5) * 35 + Math.min((e.sleep_hours || 0) / 8, 1) * 25 + ((e.energy || 3) / 5) * 25 + ((e.deep_work_blocks || 0) / 5) * 15);
+    }
+
+    function getMetricValue(e, metricKey) {
+      if (!e) return 0;
+      if (metricKey === 'score') return computeScore(e);
+      const v = e[metricKey];
+      if (v === null || v === undefined || v === '') return 0;
+      const num = Number(v);
+      return Number.isFinite(num) ? num : 0;
     }
 
     function renderPrediction(slice) {
@@ -362,16 +429,40 @@
 
     function renderAll() {
       renderDaily();
-      renderLineChart('7d');
+      renderLineChart(selectedRange);
       renderKeyMetrics();
       renderWeekBars();
       renderHeatmap();
       renderMultiChart();
-      document.querySelectorAll('.tab-btn').forEach(btn => {
+      // Range toggles (7D / 30D)
+      document.querySelectorAll('.tab-btn[data-range]').forEach(btn => {
         btn.onclick = () => {
-          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          selectedRange = btn.dataset.range;
+          document.querySelectorAll('.tab-btn[data-range]').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
-          renderLineChart(btn.dataset.range);
+          renderLineChart(selectedRange);
+        };
+      });
+      // Metric toggles (Score / Sleep / ...)
+      document.querySelectorAll('.metric-btn').forEach(btn => {
+        btn.onclick = () => {
+          selectedMetric = btn.dataset.metric;
+          document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const meta = METRICS[selectedMetric] || METRICS.score;
+          document.getElementById('metric-title').textContent = meta.label;
+          renderLineChart(selectedRange);
+        };
+      });
+      // Heatmap metric toggles
+      document.querySelectorAll('.hm-btn').forEach(btn => {
+        btn.onclick = () => {
+          heatmapMetric = btn.dataset.metric;
+          document.querySelectorAll('.hm-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const meta = METRICS[heatmapMetric] || METRICS.sleep_quality;
+          document.getElementById('heatmap-title').textContent = (meta.label.includes('Heatmap') ? meta.label : (meta.label + ' Heatmap')) + ' · 4 Weeks';
+          renderHeatmap();
         };
       });
     }
@@ -406,7 +497,8 @@
       const slice = chartData.slice(-n);
       if (slice.length < 2) return;
 
-      const scores = slice.map(computeScore);
+      const meta = METRICS[selectedMetric] || METRICS.score;
+      const values = slice.map(e => getMetricValue(e, selectedMetric));
       const labels = slice.map(e => {
         const d = new Date(e.date + 'T12:00:00');
         return range === '7d' ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] : d.getDate() + '';
@@ -415,17 +507,24 @@
       const svg = document.getElementById('line-svg');
       const W = 800, H = 180, pad = { top: 10, right: 10, bottom: 20, left: 28 };
       const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
-      const xStep = iW / (scores.length - 1);
+      const xStep = iW / (values.length - 1);
       const px = i => pad.left + i * xStep;
-      const py = v => pad.top + iH - (v / 100) * iH;
+      const minV = meta.min ?? 0;
+      const maxV = meta.max ?? 100;
+      const denom = (maxV - minV) || 1;
+      const clamp01 = t => Math.max(0, Math.min(1, t));
+      const py = v => pad.top + iH - clamp01((v - minV) / denom) * iH;
 
-      let pathD = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
-      let areaD = pathD + ` L${px(scores.length - 1)},${pad.top + iH} L${px(0)},${pad.top + iH} Z`;
+      let pathD = values.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
+      let areaD = pathD + ` L${px(values.length - 1)},${pad.top + iH} L${px(0)},${pad.top + iH} Z`;
 
       let grid = '';
-      for (let v = 20; v <= 100; v += 20) {
+      const tickCount = 5;
+      for (let i = 0; i <= tickCount; i++) {
+        const v = minV + (denom * (i / tickCount));
+        const lbl = meta.fmt ? meta.fmt(v) : String(Math.round(v));
         grid += `<line x1="${pad.left}" y1="${py(v)}" x2="${W - pad.right}" y2="${py(v)}" stroke="rgba(255,255,255,0.04)"/>`;
-        grid += `<text x="${pad.left - 6}" y="${py(v) + 3}" text-anchor="end" fill="#525252" font-size="9" font-family="Inter,sans-serif">${v}</text>`;
+        grid += `<text x="${pad.left - 6}" y="${py(v) + 3}" text-anchor="end" fill="#525252" font-size="9" font-family="Inter,sans-serif">${lbl}</text>`;
       }
 
       svg.innerHTML = `
@@ -435,7 +534,7 @@
         ${grid}
         <path d="${areaD}" fill="url(#lg)"/>
         <path d="${pathD}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        ${scores.map((v, i) => `<circle class="dot-pt" cx="${px(i)}" cy="${py(v)}" r="3.5" fill="white" stroke="#050505" stroke-width="2" data-i="${i}" data-v="${v}" data-date="${slice[i].date}" style="cursor:pointer"/>`).join('')}
+        ${values.map((v, i) => `<circle class="dot-pt" cx="${px(i)}" cy="${py(v)}" r="3.5" fill="white" stroke="#050505" stroke-width="2" data-i="${i}" data-v="${v}" data-date="${slice[i].date}" style="cursor:pointer"/>`).join('')}
       `;
 
       document.getElementById('x-labels').innerHTML = labels.map(l =>
@@ -443,7 +542,7 @@
       ).join('');
 
       // Prediction (3+ days)
-      if (slice.length >= 3) {
+      if (selectedMetric === 'score' && slice.length >= 3) {
         document.getElementById('prediction-section').classList.remove('hidden');
         renderPrediction(slice);
       } else {
@@ -455,7 +554,9 @@
       svg.querySelectorAll('.dot-pt').forEach(dot => {
         dot.addEventListener('mouseenter', ev => {
           const i = parseInt(dot.dataset.i), e = slice[i];
-          tip.innerHTML = `<strong class="text-white block">${dot.dataset.date}</strong>Score: ${dot.dataset.v} · ${e.sleep_hours ?? '—'}h · ${e.deep_work_blocks ?? 0} blocks`;
+          const val = Number(dot.dataset.v);
+          const valText = (meta.fmt ? meta.fmt(val) : String(val)) + (meta.unit || '');
+          tip.innerHTML = `<strong class="text-white block">${dot.dataset.date}</strong>${meta.label}: ${valText} · ${e.sleep_hours ?? '—'}h · ${e.deep_work_blocks ?? 0} blocks`;
           tip.style.left = (ev.clientX - cardRect.left + 12) + 'px';
           tip.style.top = (ev.clientY - cardRect.top - 44) + 'px';
           tip.style.opacity = '1';
@@ -516,11 +617,17 @@
       const total = 28, slice = chartData.slice(-total);
       const el = document.getElementById('heatmap');
       el.innerHTML = '';
+      const meta = METRICS[heatmapMetric] || METRICS.sleep_quality;
+      const minV = meta.min ?? 0;
+      const maxV = meta.max ?? 100;
+      const denom = (maxV - minV) || 1;
       for (let i = 0; i < total; i++) {
         const e = slice[i] || null;
-        const score = e ? computeScore(e) : 0;
-        const idx = e ? Math.min(3, Math.floor(score / 25)) : 0;
-        el.innerHTML += `<div class="hm-cell" style="background:${pal[idx]}" title="${e ? e.date + ': ' + score : '—'}"></div>`;
+        const raw = e ? getMetricValue(e, heatmapMetric) : null;
+        const norm = raw === null ? 0 : Math.max(0, Math.min(0.999, (raw - minV) / denom));
+        const idx = e ? Math.min(3, Math.max(0, Math.floor(norm * 4))) : 0;
+        const vText = e ? ((meta.fmt ? meta.fmt(raw) : String(raw)) + (meta.unit || '')) : '—';
+        el.innerHTML += `<div class="hm-cell" style="background:${pal[idx]}" title="${e ? (e.date + ': ' + vText) : '—'}"></div>`;
       }
     }
 
