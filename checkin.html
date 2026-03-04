@@ -458,34 +458,40 @@
       };
     });
 
-    document.getElementById('tab-type').onclick = () => {
-      document.getElementById('type-area').classList.remove('hidden');
-      document.getElementById('voice-area').classList.add('hidden');
-      document.getElementById('quick-chips').classList.remove('hidden');
-      document.getElementById('tab-type').className = TAB_ACTIVE;
-      document.getElementById('tab-voice').className = TAB_INACTIVE;
-      if (window.waveAnim) window.waveAnim.pause();
-    };
-    document.getElementById('tab-voice').onclick = () => {
-      document.getElementById('voice-area').classList.remove('hidden');
-      document.getElementById('type-area').classList.add('hidden');
-      document.getElementById('quick-chips').classList.add('hidden');
-      document.getElementById('tab-voice').className = TAB_ACTIVE;
-      document.getElementById('tab-type').className = TAB_INACTIVE;
-      // Carry over any typed reflection into the voice preview so progress is visible
-      const ta = document.getElementById('transcript-input');
-      const full = (ta.value || '').trim();
-      const vp = document.getElementById('voice-preview');
-      const gq = document.getElementById('voice-guiding-questions');
-      if (full) {
-        vp.textContent = full.length > 120 ? full.slice(0, 120) + '…' : full;
-        gq.classList.add('hidden');
+    let currentMode = 'voice';
+
+    function setMode(mode) {
+      currentMode = mode;
+      if (mode === 'type') {
+        document.getElementById('type-area').classList.remove('hidden');
+        document.getElementById('voice-area').classList.add('hidden');
+        document.getElementById('quick-chips').classList.remove('hidden');
+        document.getElementById('tab-type').className = TAB_ACTIVE;
+        document.getElementById('tab-voice').className = TAB_INACTIVE;
+        if (window.waveAnim) window.waveAnim.pause();
       } else {
-        vp.textContent = '';
-        gq.classList.remove('hidden');
+        document.getElementById('voice-area').classList.remove('hidden');
+        document.getElementById('type-area').classList.add('hidden');
+        document.getElementById('quick-chips').classList.add('hidden');
+        document.getElementById('tab-voice').className = TAB_ACTIVE;
+        document.getElementById('tab-type').className = TAB_INACTIVE;
+        const ta = document.getElementById('transcript-input');
+        const full = (ta.value || '').trim();
+        const vp = document.getElementById('voice-preview');
+        const gq = document.getElementById('voice-guiding-questions');
+        if (full) {
+          vp.textContent = full.length > 120 ? full.slice(0, 120) + '…' : full;
+          gq.classList.add('hidden');
+        } else {
+          vp.textContent = '';
+          gq.classList.remove('hidden');
+        }
+        if (window.waveAnim) window.waveAnim.resume();
       }
-      if (window.waveAnim) window.waveAnim.resume();
-    };
+    }
+
+    document.getElementById('tab-type').onclick = () => setMode('type');
+    document.getElementById('tab-voice').onclick = () => setMode('voice');
 
     function getFallbackQuestions(text) {
       const t = text.toLowerCase();
