@@ -43,33 +43,30 @@
     }
     .tab-btn:hover:not(.active) { color: #d4d4d4; border-color: rgba(255,255,255,0.12); }
     .filter-wrap {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      padding: 4px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.10);
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 10px;
       background: rgba(255,255,255,0.04);
     }
     .filter-btn {
-      font-size: 10px;
-      letter-spacing: 0.05em;
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid transparent;
+      font-size: 11px;
+      letter-spacing: 0;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: none;
       background: transparent;
-      color: #a3a3a3;
+      color: #737373;
       cursor: pointer;
-      transition: all .2s;
+      transition: all .15s ease;
       font-family: 'Inter', sans-serif;
-      text-transform: uppercase;
+      white-space: nowrap;
     }
     .filter-btn.active {
-      background: rgba(255,255,255,0.12);
-      border-color: rgba(255,255,255,0.18);
-      color: #ffffff;
+      background: rgba(255,255,255,0.10);
+      color: #e5e5e5;
     }
-    .filter-btn:hover:not(.active) { color: #e5e5e5; background: rgba(255,255,255,0.06); }
+    .filter-btn:hover:not(.active) { color: #a3a3a3; }
     .hm-cell {
       aspect-ratio: 1;
       border-radius: 3px;
@@ -153,20 +150,19 @@
 
       <!-- Performance line chart -->
       <div class="glass-card rounded-2xl p-6 mb-4" id="chart-card">
-        <div class="flex justify-between items-start mb-4">
-          <div>
-            <span id="metric-title" class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Performance Score</span>
-            <div class="mt-2 filter-wrap" aria-label="Filter chart metric">
+        <div class="flex justify-between items-center mb-4">
+          <span id="metric-title" class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Performance Score</span>
+          <div class="flex items-center gap-3">
+            <div class="filter-wrap" aria-label="Filter chart metric">
               <button class="metric-btn filter-btn active" data-metric="score">Score</button>
-              <button class="metric-btn filter-btn" data-metric="sleep_hours">Sleep</button>
-              <button class="metric-btn filter-btn" data-metric="sleep_quality">Quality</button>
+              <button class="metric-btn filter-btn" data-metric="sleep">Sleep</button>
               <button class="metric-btn filter-btn" data-metric="energy">Energy</button>
               <button class="metric-btn filter-btn" data-metric="deep_work_blocks">Deep work</button>
             </div>
-          </div>
-          <div class="flex gap-1">
-            <button class="tab-btn active" data-range="7d">7D</button>
-            <button class="tab-btn" data-range="30d">30D</button>
+            <div class="flex gap-1">
+              <button class="tab-btn active" data-range="7d">7D</button>
+              <button class="tab-btn" data-range="30d">30D</button>
+            </div>
           </div>
         </div>
         <div class="relative">
@@ -199,15 +195,12 @@
         </div>
         <!-- Quality heatmap -->
         <div class="glass-card rounded-2xl p-6">
-          <div class="flex items-start justify-between gap-3">
-            <span id="heatmap-title" class="text-[10px] uppercase tracking-wider font-medium text-neutral-500">Quality Heatmap · 4 Weeks</span>
-            <div class="filter-wrap" aria-label="Filter heatmap metric">
-              <button class="hm-btn filter-btn active" data-metric="sleep_quality">Quality</button>
-              <button class="hm-btn filter-btn" data-metric="score">Score</button>
-              <button class="hm-btn filter-btn" data-metric="sleep_hours">Sleep</button>
-              <button class="hm-btn filter-btn" data-metric="energy">Energy</button>
-              <button class="hm-btn filter-btn" data-metric="deep_work_blocks">Deep work</button>
-            </div>
+          <span id="heatmap-title" class="text-[10px] uppercase tracking-wider font-medium text-neutral-500 block mb-3">Sleep Heatmap · 4 Weeks</span>
+          <div class="filter-wrap mb-3" aria-label="Filter heatmap metric">
+            <button class="hm-btn filter-btn active" data-metric="sleep">Sleep</button>
+            <button class="hm-btn filter-btn" data-metric="score">Score</button>
+            <button class="hm-btn filter-btn" data-metric="energy">Energy</button>
+            <button class="hm-btn filter-btn" data-metric="deep_work_blocks">Deep work</button>
           </div>
           <div class="grid grid-cols-7 gap-1 mt-4 mb-1">
             <span class="text-[8px] text-neutral-600 text-center">M</span>
@@ -350,14 +343,13 @@
     // ── Metric filtering ──
     const METRICS = {
       score: { label: 'Performance Score', min: 0, max: 100, unit: '', fmt: v => String(Math.round(v)) },
-      sleep_hours: { label: 'Sleep (hours)', min: 0, max: 10, unit: 'h', fmt: v => (Math.round(v * 10) / 10).toFixed(1) },
-      sleep_quality: { label: 'Sleep Quality', min: 1, max: 5, unit: '/5', fmt: v => String(Math.round(v)) },
+      sleep: { label: 'Sleep (hours + quality)', min: 0, max: 100, unit: '', fmt: v => String(Math.round(v)) },
       energy: { label: 'Energy', min: 1, max: 5, unit: '/5', fmt: v => String(Math.round(v)) },
       deep_work_blocks: { label: 'Deep Work Blocks', min: 0, max: 5, unit: '', fmt: v => String(Math.round(v)) },
     };
     let selectedMetric = 'score';
     let selectedRange = '7d';
-    let heatmapMetric = 'sleep_quality';
+    let heatmapMetric = 'sleep';
 
     function computeScore(e) {
       if (!e) return 0;
@@ -367,6 +359,14 @@
     function getMetricValue(e, metricKey) {
       if (!e) return 0;
       if (metricKey === 'score') return computeScore(e);
+      if (metricKey === 'sleep') {
+        const h = Number(e.sleep_hours ?? 0);
+        const q = Number(e.sleep_quality ?? 3);
+        const hn = Math.max(0, Math.min(10, Number.isFinite(h) ? h : 0)) / 10;
+        const qn = Math.max(1, Math.min(5, Number.isFinite(q) ? q : 3)) / 5;
+        // Weighted: hours matter slightly more than quality for consistency
+        return (hn * 0.6 + qn * 0.4) * 100;
+      }
       const v = e[metricKey];
       if (v === null || v === undefined || v === '') return 0;
       const num = Number(v);

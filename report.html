@@ -32,33 +32,30 @@
     }
     .tab-btn:hover:not(.active) { color: #d4d4d4; border-color: rgba(255,255,255,0.12); }
     .filter-wrap {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      padding: 4px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.10);
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 10px;
       background: rgba(255,255,255,0.04);
     }
     .filter-btn {
-      font-size: 10px;
-      letter-spacing: 0.05em;
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid transparent;
+      font-size: 11px;
+      letter-spacing: 0;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: none;
       background: transparent;
-      color: #a3a3a3;
+      color: #737373;
       cursor: pointer;
-      transition: all .2s;
+      transition: all .15s ease;
       font-family: 'Inter', sans-serif;
-      text-transform: uppercase;
+      white-space: nowrap;
     }
     .filter-btn.active {
-      background: rgba(255,255,255,0.12);
-      border-color: rgba(255,255,255,0.18);
-      color: #ffffff;
+      background: rgba(255,255,255,0.10);
+      color: #e5e5e5;
     }
-    .filter-btn:hover:not(.active) { color: #e5e5e5; background: rgba(255,255,255,0.06); }
+    .filter-btn:hover:not(.active) { color: #a3a3a3; }
 
     /* Weekly Aura Orb */
     .aura-scene { position: relative; display: flex; align-items: center; justify-content: center; height: 400px; }
@@ -164,20 +161,18 @@
 
       <!-- Analysis dashboard -->
       <section class="glass-card rounded-2xl p-6" id="analysis-dashboard">
-        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week at a Glance</span>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week at a Glance</span>
+          <div class="filter-wrap" aria-label="Filter weekly chart metric">
+            <button class="rep-metric filter-btn active" data-metric="score">Score</button>
+            <button class="rep-metric filter-btn" data-metric="sleep">Sleep</button>
+            <button class="rep-metric filter-btn" data-metric="energy">Energy</button>
+            <button class="rep-metric filter-btn" data-metric="deep_work_blocks">Deep work</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <div class="flex items-center justify-between gap-3 mb-3">
-              <p id="report-metric-title" class="text-xs text-neutral-500">Performance Score</p>
-              <div class="filter-wrap" aria-label="Filter weekly chart metric">
-                <button class="rep-metric filter-btn active" data-metric="score">Score</button>
-                <button class="rep-metric filter-btn" data-metric="sleep_hours">Sleep</button>
-                <button class="rep-metric filter-btn" data-metric="sleep_quality">Quality</button>
-                <button class="rep-metric filter-btn" data-metric="energy">Energy</button>
-                <button class="rep-metric filter-btn" data-metric="deep_work_blocks">Deep work</button>
-              </div>
-            </div>
-            <p class="text-[10px] text-neutral-600 mb-2">Combined score from sleep hours, quality, energy & deep work blocks</p>
+            <p id="report-metric-title" class="text-xs text-neutral-500 mb-2">Performance Score</p>
             <div class="relative">
               <svg id="report-line-svg" class="chart" height="140" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
             </div>
@@ -457,8 +452,7 @@
 
     const REPORT_METRICS = {
       score: { label: 'Performance Score', min: 0, max: 100, unit: '', fmt: v => String(Math.round(v)) },
-      sleep_hours: { label: 'Sleep (hours)', min: 0, max: 10, unit: 'h', fmt: v => (Math.round(v * 10) / 10).toFixed(1) },
-      sleep_quality: { label: 'Sleep Quality', min: 1, max: 5, unit: '/5', fmt: v => String(Math.round(v)) },
+      sleep: { label: 'Sleep (hours + quality)', min: 0, max: 100, unit: '', fmt: v => String(Math.round(v)) },
       energy: { label: 'Energy', min: 1, max: 5, unit: '/5', fmt: v => String(Math.round(v)) },
       deep_work_blocks: { label: 'Deep Work Blocks', min: 0, max: 5, unit: '', fmt: v => String(Math.round(v)) },
     };
@@ -466,6 +460,13 @@
     function getReportMetricValue(e, metricKey) {
       if (!e) return 0;
       if (metricKey === 'score') return computeScore(e);
+      if (metricKey === 'sleep') {
+        const h = Number(e.sleep_hours ?? 0);
+        const q = Number(e.sleep_quality ?? 3);
+        const hn = Math.max(0, Math.min(10, Number.isFinite(h) ? h : 0)) / 10;
+        const qn = Math.max(1, Math.min(5, Number.isFinite(q) ? q : 3)) / 5;
+        return (hn * 0.6 + qn * 0.4) * 100;
+      }
       const v = e[metricKey];
       if (v === null || v === undefined || v === '') return 0;
       const num = Number(v);

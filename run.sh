@@ -6,7 +6,7 @@ if [ ! -d "venv" ]; then
   python3 -m venv venv
 fi
 source venv/bin/activate
-pip install -q python-dotenv flask supabase openai
+pip install -q -r requirements.txt
 # Free port 5001 if a previous run is still active
 if lsof -ti :5001 >/dev/null 2>&1; then
   echo "Stopping process on port 5001..."
