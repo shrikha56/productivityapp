@@ -13,6 +13,49 @@
     #report-multi-svg { min-height: 100px; }
     .bar-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease; }
+    .tab-btn {
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: transparent;
+      color: #737373;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .tab-btn.active {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.2);
+      color: #e5e5e5;
+    }
+    .tab-btn:hover:not(.active) { color: #d4d4d4; border-color: rgba(255,255,255,0.12); }
+    .filter-wrap {
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+    }
+    .filter-btn {
+      font-size: 11px;
+      letter-spacing: 0;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: #737373;
+      cursor: pointer;
+      transition: all .15s ease;
+      font-family: 'Inter', sans-serif;
+      white-space: nowrap;
+    }
+    .filter-btn.active {
+      background: rgba(255,255,255,0.10);
+      color: #e5e5e5;
+    }
+    .filter-btn:hover:not(.active) { color: #a3a3a3; }
 
     /* Weekly Aura Orb */
     .aura-scene { position: relative; display: flex; align-items: center; justify-content: center; height: 400px; }
@@ -118,11 +161,18 @@
 
       <!-- Analysis dashboard -->
       <section class="glass-card rounded-2xl p-6" id="analysis-dashboard">
-        <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week at a Glance</span>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-[10px] uppercase tracking-wider font-medium text-neutral-400">Week at a Glance</span>
+          <div class="filter-wrap" aria-label="Filter weekly chart metric">
+            <button class="rep-metric filter-btn active" data-metric="score">Score</button>
+            <button class="rep-metric filter-btn" data-metric="sleep">Sleep</button>
+            <button class="rep-metric filter-btn" data-metric="energy">Energy</button>
+            <button class="rep-metric filter-btn" data-metric="deep_work_blocks">Deep work</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p class="text-xs text-neutral-500 mb-3">Performance Score</p>
-            <p class="text-[10px] text-neutral-600 mb-2">Combined score from sleep hours, quality, energy & deep work blocks</p>
+            <p id="report-metric-title" class="text-xs text-neutral-500 mb-2">Performance Score</p>
             <div class="relative">
               <svg id="report-line-svg" class="chart" height="140" viewBox="0 0 600 140" preserveAspectRatio="none"></svg>
             </div>
@@ -400,6 +450,29 @@
       return Math.round(((e.sleep_quality || 3) / 5) * 35 + Math.min((e.sleep_hours || 0) / 8, 1) * 25 + ((e.energy || 3) / 5) * 25 + ((e.deep_work_blocks || 0) / 5) * 15);
     }
 
+    const REPORT_METRICS = {
+      score: { label: 'Performance Score', min: 0, max: 100, unit: '', fmt: v => String(Math.round(v)) },
+      sleep: { label: 'Sleep (hours + quality)', min: 0, max: 100, unit: '', fmt: v => String(Math.round(v)) },
+      energy: { label: 'Energy', min: 1, max: 5, unit: '/5', fmt: v => String(Math.round(v)) },
+      deep_work_blocks: { label: 'Deep Work Blocks', min: 0, max: 5, unit: '', fmt: v => String(Math.round(v)) },
+    };
+    let reportMetric = 'score';
+    function getReportMetricValue(e, metricKey) {
+      if (!e) return 0;
+      if (metricKey === 'score') return computeScore(e);
+      if (metricKey === 'sleep') {
+        const h = Number(e.sleep_hours ?? 0);
+        const q = Number(e.sleep_quality ?? 3);
+        const hn = Math.max(0, Math.min(10, Number.isFinite(h) ? h : 0)) / 10;
+        const qn = Math.max(1, Math.min(5, Number.isFinite(q) ? q : 3)) / 5;
+        return (hn * 0.6 + qn * 0.4) * 100;
+      }
+      const v = e[metricKey];
+      if (v === null || v === undefined || v === '') return 0;
+      const num = Number(v);
+      return Number.isFinite(num) ? num : 0;
+    }
+
     function renderPrediction(slice) {
       const scores = slice.map(computeScore);
       const lastScore = scores[scores.length - 1];
@@ -439,7 +512,8 @@
       const slice = entries.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
       // Performance line chart
-      const scores = slice.map(computeScore);
+      const meta = REPORT_METRICS[reportMetric] || REPORT_METRICS.score;
+      const scores = slice.map(e => getReportMetricValue(e, reportMetric));
       const labels = slice.map(e => {
         const d = new Date((e.date || '') + 'T12:00:00');
         return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] || e.date?.slice(5) || '';
@@ -448,7 +522,11 @@
       const iW = W - pad.left - pad.right, iH = H - pad.top - pad.bottom;
       const xStep = slice.length > 1 ? iW / (scores.length - 1) : iW;
       const px = i => pad.left + i * xStep;
-      const py = v => pad.top + iH - (v / 100) * iH;
+      const minV = meta.min ?? 0;
+      const maxV = meta.max ?? 100;
+      const denom = (maxV - minV) || 1;
+      const clamp01 = t => Math.max(0, Math.min(1, t));
+      const py = v => pad.top + iH - clamp01((v - minV) / denom) * iH;
       let pathD = scores.map((v, i) => `${i === 0 ? 'M' : 'L'}${px(i)},${py(v)}`).join(' ');
       let areaD = pathD + ` L${px(scores.length - 1)},${pad.top + iH} L${px(0)},${pad.top + iH} Z`;
       document.getElementById('report-line-svg').innerHTML = `
@@ -464,7 +542,7 @@
       ).join('');
 
       // Prediction chart (3+ days)
-      if (slice.length >= 3) {
+      if (reportMetric === 'score' && slice.length >= 3) {
         document.getElementById('prediction-section').classList.remove('hidden');
         renderPrediction(slice);
       } else {
@@ -666,6 +744,17 @@
       requestAnimationFrame(() => {
         renderCharts(entries);
         renderAura(entries, data);
+        // Metric toggle wiring
+        document.querySelectorAll('.rep-metric').forEach(btn => {
+          btn.onclick = () => {
+            reportMetric = btn.dataset.metric || 'score';
+            document.querySelectorAll('.rep-metric').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const meta = REPORT_METRICS[reportMetric] || REPORT_METRICS.score;
+            document.getElementById('report-metric-title').textContent = meta.label;
+            renderCharts(entries);
+          };
+        });
       });
     }
 

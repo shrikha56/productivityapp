@@ -107,7 +107,12 @@
           <div id="type-area" class="hidden space-y-4">
             <div class="min-h-[80px]">
               <textarea name="transcript" id="transcript-input" rows="3" placeholder="Start typing… How did you sleep? What are you feeling? What did you attempt?"
+                autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true"
                 class="w-full bg-transparent border-0 px-0 py-2 text-sm text-white placeholder-neutral-500 focus:ring-0 outline-none resize-none"></textarea>
+              <div id="autocomplete-hint" class="hidden flex items-center gap-2 mt-1 cursor-pointer select-none group" role="button" tabindex="-1">
+                <span id="autocomplete-text" class="text-sm text-neutral-600 group-hover:text-neutral-400 transition-colors"></span>
+                <kbd class="shrink-0 text-[10px] text-neutral-500 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded font-mono">Tab</kbd>
+              </div>
               <p id="live-preview" class="text-sm text-neutral-300 min-h-[1.25rem] mt-1"></p>
             </div>
             <div id="clarify-area" class="mt-4 pt-4 border-t border-white/10 space-y-3 min-h-[4rem]">
@@ -323,12 +328,118 @@
     const TAB_ACTIVE = 'px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white text-sm font-medium';
     const TAB_INACTIVE = 'px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-neutral-400 text-sm hover:border-white/20 hover:text-white transition-colors';
 
+    // ── Word autocomplete ──
+    const WORDS = [
+      'exhausted','energised','energized','energy','exercise','evening',
+      'productive','procrastinating','progress',
+      'distracted','drained','dehydrated','deep work',
+      'stressed','snacking','stomach','scattered','sleepy','struggling',
+      'focused','fatigued','frustrated',
+      'anxious','appetite','afternoon',
+      'unfocused','unmotivated','unrested',
+      'motivated','meditation','migraine','morning',
+      'overwhelmed','overslept',
+      'insomnia','indigestion','irritable',
+      'restless','rested','refreshed','routine','recovered',
+      'caffeine','craving','cramping','concentration',
+      'headache','hydrated','hungry',
+      'bloated','burnout',
+      'groggy','grateful',
+      'lethargic','low energy',
+      'nauseous','napping',
+      'waking','workout','wandering',
+      'quality','yesterday','today','tonight','tomorrow',
+    ];
+    let currentSuggestion = null;
+    const acHint = document.getElementById('autocomplete-hint');
+    const acText = document.getElementById('autocomplete-text');
+
+    function getLastPartialWord(text) {
+      const m = text.match(/([a-zA-Z]{2,})$/);
+      return m ? m[1].toLowerCase() : null;
+    }
+
+    function matchWord(text) {
+      const partial = getLastPartialWord(text);
+      if (!partial || partial.length < 2) return null;
+      for (const w of WORDS) {
+        if (w.startsWith(partial) && w !== partial) return w.slice(partial.length);
+      }
+      return null;
+    }
+
+    function showSuggestion(text) {
+      const rest = matchWord(text);
+      if (rest) {
+        currentSuggestion = rest;
+        acText.textContent = getLastPartialWord(text) + rest;
+        acHint.classList.remove('hidden');
+      } else {
+        currentSuggestion = null;
+        acHint.classList.add('hidden');
+      }
+    }
+
+    function acceptSuggestion() {
+      if (!currentSuggestion) return false;
+      const ta = document.getElementById('transcript-input');
+      ta.value += currentSuggestion;
+      currentSuggestion = null;
+      acHint.classList.add('hidden');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      ta.focus();
+      return true;
+    }
+
+    document.getElementById('transcript-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Tab' && currentSuggestion) {
+        e.preventDefault();
+        acceptSuggestion();
+      }
+    });
+    document.getElementById('autocomplete-hint').addEventListener('click', () => acceptSuggestion());
+
+    // ── Chip auto-detect ──
+    const CHIP_PATTERNS = {
+      'poor sleep': [
+        /\bpoor sleep\b/i, /\bbad sleep\b/i, /\brough sleep\b/i, /\brestless\b/i, /\binsomnia\b/i,
+        /\bno sleep\b/i, /\bsleep[- ]depriv/i, /\bwoke up\b/i, /\bwaking up\b/i, /\bkept waking\b/i,
+      ],
+      'good sleep': [
+        /\bgood sleep\b/i, /\bgreat sleep\b/i, /\bslept well\b/i, /\bwell[- ]rested\b/i, /\brested\b/i,
+      ],
+      'snacking': [
+        /\bsnack/i, /\bgrazing\b/i, /\bjunk food\b/i, /\bbinge\b/i, /\bcraving/i,
+      ],
+      'stomach pain': [
+        /\bstomach\b/i, /\bnausea\b/i, /\bcramp/i, /\bbloat/i, /\babdominal\b/i, /\bindigestion\b/i,
+      ],
+      'low energy': [
+        /\blow energy\b/i, /\btired\b/i, /\bexhaust/i, /\bdrain(ed|ing)?\b/i, /\bfatigue\b/i, /\bsleepy\b/i,
+      ],
+      'anxious': [
+        /\banxious\b/i, /\banxiety\b/i, /\bstress(ed|ful)?\b/i, /\bpanic\b/i, /\bworried\b/i, /\boverwhelm/i,
+      ],
+      'unfocused': [
+        /\bunfocused\b/i, /\bdistract(ed|ing)?\b/i, /\bscattered\b/i, /\bcan'?t focus\b/i, /\bcouldn'?t focus\b/i,
+        /\bno focus\b/i, /\bprocrastinat/i,
+      ],
+      'productive': [
+        /\bproductive\b/i, /\bgot (a )?lot done\b/i, /\bmade progress\b/i, /\bin flow\b/i, /\bdeep work\b/i,
+      ],
+    };
+    function isChipMentioned(chip, textLower) {
+      const patterns = CHIP_PATTERNS[chip];
+      if (patterns && patterns.length) return patterns.some(rx => rx.test(textLower));
+      return !!chip && textLower.includes(chip);
+    }
+
     const CHIP_WORDS = ['poor sleep','snacking','stomach pain','low energy','anxious','unfocused','good sleep','productive'];
     function updateChipSelection() {
-      const text = document.getElementById('transcript-input').value.toLowerCase();
+      const text = (document.getElementById('transcript-input').value || '').toLowerCase();
       document.querySelectorAll('.chip-btn').forEach(btn => {
-        const word = btn.textContent.trim().toLowerCase();
-        const selected = text.includes(word);
+        const word = (btn.dataset.word || btn.textContent || '').trim().toLowerCase();
+        const selected = isChipMentioned(word, text);
         btn.classList.toggle('bg-white/15', selected);
         btn.classList.toggle('text-white', selected);
         btn.classList.toggle('border-white/30', selected);
@@ -361,32 +472,20 @@
       document.getElementById('quick-chips').classList.add('hidden');
       document.getElementById('tab-voice').className = TAB_ACTIVE;
       document.getElementById('tab-type').className = TAB_INACTIVE;
+      // Carry over any typed reflection into the voice preview so progress is visible
+      const ta = document.getElementById('transcript-input');
+      const full = (ta.value || '').trim();
+      const vp = document.getElementById('voice-preview');
+      const gq = document.getElementById('voice-guiding-questions');
+      if (full) {
+        vp.textContent = full.length > 120 ? full.slice(0, 120) + '…' : full;
+        gq.classList.add('hidden');
+      } else {
+        vp.textContent = '';
+        gq.classList.remove('hidden');
+      }
       if (window.waveAnim) window.waveAnim.resume();
     };
-
-    function updateChipSelection() {
-      const text = (document.getElementById('transcript-input').value || '').toLowerCase();
-      document.querySelectorAll('.chip-btn').forEach(btn => {
-        const word = (btn.dataset.word || btn.textContent || '').trim().toLowerCase();
-        const selected = word && text.includes(word);
-        btn.classList.toggle('bg-white/15', selected);
-        btn.classList.toggle('text-white', selected);
-        btn.classList.toggle('border-white/30', selected);
-        btn.classList.toggle('bg-white/5', !selected);
-        btn.classList.toggle('text-neutral-400', !selected);
-      });
-    }
-
-    document.querySelectorAll('.chip-btn').forEach(btn => {
-      btn.onclick = () => {
-        const ta = document.getElementById('transcript-input');
-        const word = btn.dataset.word || btn.textContent.trim();
-        const cur = ta.value.trim();
-        ta.value = cur ? cur + '. ' + word : word;
-        ta.dispatchEvent(new Event('input', { bubbles: true }));
-        updateChipSelection();
-      };
-    });
 
     function getFallbackQuestions(text) {
       const t = text.toLowerCase();
@@ -427,8 +526,9 @@
     const clarifyHint = document.getElementById('clarify-hint');
     document.getElementById('transcript-input').addEventListener('input', (e) => {
       const text = e.target.value.trim();
-      document.getElementById('live-preview').textContent = text ? text + '…' : '';
+      document.getElementById('live-preview').textContent = text || '';
       updateChipSelection();
+      showSuggestion(e.target.value);
       const el = document.getElementById('clarify-questions');
       const label = document.getElementById('clarify-label');
       if (clarifyAbort) clarifyAbort.abort();
@@ -785,6 +885,8 @@
     let appendMode = false;
 
     document.getElementById('record-btn').onclick = async () => {
+      // Auto-select: tap record → switch to Voice
+      if (currentMode !== 'voice') setMode('voice');
       const btn = document.getElementById('record-btn');
       const label = document.getElementById('record-label');
       const timer = document.getElementById('record-timer');
