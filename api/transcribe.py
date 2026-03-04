@@ -59,8 +59,17 @@ class handler(BaseHTTPRequestHandler):
             with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f:
                 f.write(audio_data)
                 path = f.name
+            prompt = (
+                "Daily journal check-in about sleep quality, energy levels, deep work, "
+                "focus, productivity, mood, stress, anxiety, motivation, exhaustion, "
+                "lethargic, groggy, bed rotting, procrastinating, overwhelmed, caffeine, "
+                "screen time, hydration, napping, burnout, migraine, headache, workout, "
+                "meditation, vibe coding, FaceTiming."
+            )
             with open(path, "rb") as f:
-                r = openai.OpenAI(api_key=OPENAI_KEY).audio.transcriptions.create(model="whisper-1", file=f, language="en")
+                r = openai.OpenAI(api_key=OPENAI_KEY).audio.transcriptions.create(
+                    model="whisper-1", file=f, language="en", prompt=prompt,
+                )
             os.unlink(path)
             self._send(200, {"transcript": r.text})
         except Exception as e:
