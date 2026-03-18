@@ -20,9 +20,9 @@ from flask import Flask, request, jsonify, send_from_directory, Response
 from functools import wraps
 
 # Import API logic from Vercel functions
-from api.analyze import get_supabase, analyze_with_gpt
+from api.analyze import get_supabase, get_supabase_for_user, analyze_with_gpt
 from api.security import (
-    get_user_id, encrypt, decrypt,
+    get_user_id, encrypt, decrypt, encrypt_value, decrypt_float, decrypt_int,
     sanitize_text, clamp_int, clamp_float, validate_date, validate_uuid,
 )
 import importlib
@@ -66,10 +66,12 @@ def check_rate_limit(key: str) -> bool:
 def require_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        user_id = get_user_id(request.headers.get("Authorization", ""))
+        auth_header = request.headers.get("Authorization", "")
+        user_id = get_user_id(auth_header)
         if not user_id:
             return jsonify({"error": "Authentication required"}), 401
         request.authenticated_user_id = user_id
+        request.access_token = auth_header[7:] if auth_header.startswith("Bearer ") else ""
         if not check_rate_limit(user_id):
             return jsonify({"error": "Too many requests. Try again shortly."}), 429
         return f(*args, **kwargs)
@@ -149,7 +151,7 @@ def analysis():
 def list_entries():
     """Fetch user's entries with decrypted fields."""
     user_id = request.authenticated_user_id
-    supabase = get_supabase()
+    supabase = get_supabase_for_user(request.access_token)
     if not supabase:
         return jsonify({"error": "Server not configured"}), 503
     try:
@@ -163,6 +165,10 @@ def list_entries():
             ).eq("user_id", user_id).order("date", desc=True).limit(90).execute()
         entries = result.data or []
         for e in entries:
+            e["sleep_hours"] = decrypt_float(e.get("sleep_hours"), 0)
+            e["sleep_quality"] = decrypt_int(e.get("sleep_quality"), 3)
+            e["energy"] = decrypt_int(e.get("energy"), 3)
+            e["deep_work_blocks"] = decrypt_int(e.get("deep_work_blocks"), 0)
             e["reflection_summary"] = decrypt(e.get("reflection_summary") or "")
             e["predicted_impact"] = decrypt(e.get("predicted_impact") or "")
             e["experiment_for_tomorrow"] = decrypt(e.get("experiment_for_tomorrow") or "")
@@ -178,7 +184,7 @@ def today_entries():
     """Check how many entries the user has for today and total unique days logged."""
     user_id = request.authenticated_user_id
     today = __import__("datetime").date.today().isoformat()
-    supabase = get_supabase()
+    supabase = get_supabase_for_user(request.access_token)
     if not supabase:
         return jsonify({"error": "Server not configured"}), 503
     try:
@@ -209,7 +215,7 @@ def get_entry(entry_id):
     user_id = request.authenticated_user_id
     if not validate_uuid(entry_id):
         return jsonify({"error": "Invalid entry ID"}), 400
-    supabase = get_supabase()
+    supabase = get_supabase_for_user(request.access_token)
     if not supabase:
         return jsonify({"error": "Server not configured"}), 503
     try:
@@ -221,6 +227,10 @@ def get_entry(entry_id):
             s = decrypt(val or "")
             return "" if (s and len(s) > 10 and s.startswith("gAAAAA")) else (s or "")
 
+        entry["sleep_hours"] = decrypt_float(entry.get("sleep_hours"), 0)
+        entry["sleep_quality"] = decrypt_int(entry.get("sleep_quality"), 3)
+        entry["energy"] = decrypt_int(entry.get("energy"), 3)
+        entry["deep_work_blocks"] = decrypt_int(entry.get("deep_work_blocks"), 0)
         entry["transcript"] = safe_decrypt(entry.get("transcript"))
         entry["reflection_summary"] = safe_decrypt(entry.get("reflection_summary"))
         entry["predicted_impact"] = safe_decrypt(entry.get("predicted_impact"))
@@ -277,7 +287,7 @@ def analyze():
     data = request.get_json(force=True, silent=True) or {}
     user_id = request.authenticated_user_id
 
-    supabase = get_supabase()
+    supabase = get_supabase_for_user(request.access_token)
     if not supabase:
         return jsonify({"error": "Server not configured"}), 503
 
@@ -307,10 +317,10 @@ def analyze():
 
     if is_follow_up and existing_entries:
         first = existing_entries[0]
-        sleep_hours = first.get("sleep_hours") or sleep_hours
-        sleep_quality = first.get("sleep_quality") or sleep_quality
-        energy = first.get("energy") or energy
-        deep_work = first.get("deep_work_blocks") or deep_work
+        sleep_hours = decrypt_float(first.get("sleep_hours"), sleep_hours)
+        sleep_quality = decrypt_int(first.get("sleep_quality"), sleep_quality)
+        energy = decrypt_int(first.get("energy"), energy)
+        deep_work = decrypt_int(first.get("deep_work_blocks"), deep_work)
 
     skip_analysis = False
     if is_follow_up:
@@ -343,10 +353,10 @@ def analyze():
     row = {
         "user_id": user_id,
         "date": entry_date,
-        "sleep_hours": sleep_hours,
-        "sleep_quality": sleep_quality,
-        "energy": energy,
-        "deep_work_blocks": deep_work,
+        "sleep_hours": encrypt_value(sleep_hours),
+        "sleep_quality": encrypt_value(sleep_quality),
+        "energy": encrypt_value(energy),
+        "deep_work_blocks": encrypt_value(deep_work),
         "transcript": encrypt(transcript),
         "reflection_summary": encrypt(result.get("reflection_summary", "")),
         "likely_drivers": [encrypt(d) for d in result.get("likely_drivers", [])],
@@ -437,7 +447,7 @@ def weekly_report():
         report["entries"] = DEMO_ENTRIES
         return jsonify(report)
 
-    supabase = get_supabase()
+    supabase = get_supabase_for_user(request.access_token)
     if not supabase:
         return jsonify({"error": "Server not configured"}), 503
 
@@ -448,6 +458,10 @@ def weekly_report():
         return jsonify({"error": f"Failed to fetch entries: {e}"}), 500
 
     for entry in entries:
+        entry["sleep_hours"] = decrypt_float(entry.get("sleep_hours"), 0)
+        entry["sleep_quality"] = decrypt_int(entry.get("sleep_quality"), 3)
+        entry["energy"] = decrypt_int(entry.get("energy"), 3)
+        entry["deep_work_blocks"] = decrypt_int(entry.get("deep_work_blocks"), 0)
         entry["transcript"] = decrypt(entry.get("transcript") or "")
         entry["reflection_summary"] = decrypt(entry.get("reflection_summary") or "")
         entry["predicted_impact"] = decrypt(entry.get("predicted_impact") or "")

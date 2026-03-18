@@ -85,6 +85,40 @@ def decrypt(text: str) -> str:
         return text
 
 
+def encrypt_value(value) -> str:
+    """Encrypt a numeric value as text. Returns original if no key configured."""
+    f = _get_fernet()
+    if not f:
+        return value
+    return encrypt(str(value))
+
+
+def decrypt_float(val, default: float = 0) -> float:
+    """Decrypt a value back to float. Handles plain numbers, encrypted strings, or None."""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if not val:
+        return default
+    s = decrypt(str(val))
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return default
+
+
+def decrypt_int(val, default: int = 0) -> int:
+    """Decrypt a value back to int. Handles plain numbers, encrypted strings, or None."""
+    if isinstance(val, (int, float)):
+        return int(val)
+    if not val:
+        return default
+    s = decrypt(str(val))
+    try:
+        return int(float(s))
+    except (TypeError, ValueError):
+        return default
+
+
 # ── Input sanitization ──
 
 def sanitize_text(text: str, max_length: int = 5000) -> str:

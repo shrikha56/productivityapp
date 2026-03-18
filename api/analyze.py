@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("EXPO_PUBLIC_SUPABASE_KEY", "")
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 
@@ -17,6 +18,17 @@ def get_supabase():
         return None
     from supabase import create_client
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+def get_supabase_for_user(access_token: str):
+    """Client using anon key + user JWT so Postgres RLS enforces auth.uid().
+    Falls back to service-role client if anon key isn't configured."""
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY or not access_token:
+        return get_supabase()
+    from supabase import create_client
+    client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    client.postgrest.auth(access_token)
+    return client
 
 
 def check_missing_answer(transcript: str, sleep_hours: float, sleep_quality: int, energy: int, deep_work: int) -> str | None:
